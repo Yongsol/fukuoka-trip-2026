@@ -10,12 +10,18 @@ python3 -m http.server 4173
 
 브라우저에서 `http://localhost:4173`을 엽니다.
 
-## 배포
+## 공개 주소
 
-- 정적 파일만 사용하므로 Cloudflare Pages 또는 GitHub Pages에 바로 배포할 수 있습니다.
-- Cloudflare Pages 빌드 설정: Framework preset `None`, Build command 비움, Output directory `/`.
-- `main` 브랜치가 갱신되면 Git 연동을 통해 자동 배포됩니다.
+- https://yongsol.github.io/fukuoka-trip-2026/
+- GitHub 저장소: https://github.com/Yongsol/fukuoka-trip-2026
 
-## 원본
+## 자동 배포
+
+GitHub Pages가 `main` 브랜치 루트에서 자동 배포됩니다. 파일을 수정해 `main`에 push하면 공개 사이트도 자동으로 갱신됩니다.
+
+- Build command: 없음
+- Output directory: 저장소 루트 (`/`)
+
+## 원본 동기화
 
 `/mnt/c/Users/Yongsol/Documents/Obsidian Vault/여행/2026 후쿠오카 2박 3일 여행 일정표.md`
