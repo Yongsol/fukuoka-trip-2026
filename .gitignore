@@ -5,3 +5,6 @@ Thumbs.db
 
 # Local preview
 *.log
+
+.wrangler/
+node_modules/
