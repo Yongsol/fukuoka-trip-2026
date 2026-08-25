@@ -34,11 +34,12 @@ test('service worker activation deletes only this app cache generations', async 
     'fukuoka-trip-2026-v2',
     'fukuoka-trip-2026-v4',
     'fukuoka-trip-2026-v5',
+    'fukuoka-trip-2026-v6',
     'fukuoka-planner-v3',
     'another-pages-app-v9',
   ]);
   let activation;
   listeners.get('activate')({ waitUntil(promise) { activation = promise; } });
   await activation;
-  assert.deepEqual(deleted.sort(), ['fukuoka-planner-v3', 'fukuoka-trip-2026-v2', 'fukuoka-trip-2026-v4']);
+  assert.deepEqual(deleted.sort(), ['fukuoka-planner-v3', 'fukuoka-trip-2026-v2', 'fukuoka-trip-2026-v4', 'fukuoka-trip-2026-v5']);
 });
