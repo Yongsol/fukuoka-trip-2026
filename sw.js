@@ -1,10 +1,14 @@
 const CACHE_PREFIX='fukuoka-trip-2026-';
-const CACHE=`${CACHE_PREFIX}v4`;
+const CACHE=`${CACHE_PREFIX}v5`;
 const LEGACY_CACHES=new Set(['fukuoka-planner-v3']);
 const SHELL=[
   './','./index.html','./styles.css','./src/app.js','./src/data.js','./src/planner.js',
   './src/security.js','./src/storage.js','./manifest.webmanifest','./icons/icon.svg',
-  './icons/icon-192.png','./icons/icon-512.png'
+  './icons/icon-192.png','./icons/icon-512.png',
+  './vendor/leaflet/leaflet.css','./vendor/leaflet/leaflet.js',
+  './vendor/leaflet/images/marker-icon.png','./vendor/leaflet/images/marker-icon-2x.png',
+  './vendor/leaflet/images/marker-shadow.png','./vendor/leaflet/images/layers.png',
+  './vendor/leaflet/images/layers-2x.png'
 ];
 const SHELL_URLS=new Set(SHELL.map(path=>new URL(path,self.registration.scope).href));
 const INDEX_URL=new URL('./index.html',self.registration.scope).href;
