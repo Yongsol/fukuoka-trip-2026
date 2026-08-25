@@ -59,29 +59,32 @@ export function createDeferredTask({ setTimer = setTimeout, clearTimer = clearTi
 export const dailyRoutes = {
   '2026-08-28': {
     label: '8/28 금',
-    summary: '공항 도착 후 텐진에 체크인하고 저녁 권역으로 이동해요.',
+    summary: '니시테츠 그랜드 호텔에 체크인한 뒤 텐진에서 저녁과 돈키호테 쇼핑을 해요.',
     stops: [
-      { name: '후쿠오카공항 국제선', lat: 33.5859, lng: 130.4507, modeToNext: 'airport-bus' },
-      { name: '텐진/숙소 권역', lat: 33.5903, lng: 130.4017, modeToNext: 'walk' },
-      { name: '텐진·다이묘/나카스 저녁 권역', lat: 33.5914, lng: 130.4031 },
+      { id: 'flight-out', eventIds: ['flight-out'], name: '후쿠오카공항 국제선', lat: 33.5848221, lng: 130.4442945, modeToNext: 'airport-bus' },
+      { id: 'airport-hotel', eventIds: ['airport-hotel', 'fri-dinner'], name: '니시테츠 그랜드 호텔·텐진 저녁', lat: 33.5898408, lng: 130.3954577, modeToNext: 'walk' },
+      { id: 'donki-whisky', eventIds: ['donki-whisky'], name: '돈키호테 후쿠오카 텐진 본점', lat: 33.5891, lng: 130.3972, modeToNext: 'walk' },
+      { id: 'convenience', eventIds: ['convenience'], name: '니시테츠 그랜드 호텔 복귀', lat: 33.5898408, lng: 130.3954577 },
     ],
   },
   '2026-08-29': {
     label: '8/29 토',
-    summary: '11:00 우나후지 예약부터 동물원, 텐진 복귀까지의 핵심 동선이에요.',
+    summary: '11:00 우나후지 식사 후 라라포트에서 쇼핑하고 호텔로 돌아와요.',
     stops: [
-      { name: '우나후지 (11:00 예약)', lat: 33.5869, lng: 130.3942, modeToNext: 'taxi' },
-      { name: '토리아스 후레아이 동물원', lat: 33.6506, lng: 130.4886, modeToNext: 'bus' },
-      { name: '텐진', lat: 33.5903, lng: 130.4017 },
+      { id: 'sat-breakfast', eventIds: ['sat-breakfast'], name: '니시테츠 그랜드 호텔·아침', lat: 33.5898408, lng: 130.3954577, modeToNext: 'walk' },
+      { id: 'unafuji', eventIds: ['unafuji'], name: '우나후지 (11:00 예약)', lat: 33.588668, lng: 130.3948393, modeToNext: 'transit' },
+      { id: 'akachan-shopping', eventIds: ['to-lalaport', 'akachan-shopping'], name: '라라포트·아카짱혼포', lat: 33.5647723, lng: 130.4403204, modeToNext: 'taxi' },
+      { id: 'taxi-hotel', eventIds: ['taxi-hotel', 'sat-rest'], name: '니시테츠 그랜드 호텔', lat: 33.5898408, lng: 130.3954577, modeToNext: 'walk' },
+      { id: 'sat-dinner', eventIds: ['sat-shopping', 'sat-dinner'], name: '텐진·다이묘 쇼핑과 저녁', lat: 33.5903, lng: 130.4017 },
     ],
   },
   '2026-08-30': {
     label: '8/30 일',
-    summary: '오호리공원 산책 후 텐진에서 짐을 찾아 국제선으로 이동해요.',
+    summary: '호텔에서 CARGOPASS에 짐을 맡기고 트리아스 동물원 방문 후 국제선으로 이동해요.',
     stops: [
-      { name: '오호리공원', lat: 33.5861, lng: 130.3764, modeToNext: 'walk' },
-      { name: '텐진/짐 찾기', lat: 33.5904, lng: 130.3999, modeToNext: 'airport-bus' },
-      { name: '후쿠오카공항 국제선', lat: 33.5859, lng: 130.4507 },
+      { id: 'cargopass-handoff', eventIds: ['sun-breakfast', 'cargopass-handoff'], name: '니시테츠 그랜드 호텔·CARGOPASS 인계', lat: 33.5898408, lng: 130.3954577, modeToNext: 'bus' },
+      { id: 'zoo', eventIds: ['to-torius', 'zoo', 'torius-lunch', 'torius-buffer'], name: '트리아스·후레아이 동물원·점심', lat: 33.6527549, lng: 130.4928927, modeToNext: 'transit' },
+      { id: 'cargopass-pickup', eventIds: ['torius-airport', 'cargopass-pickup', 'flight-home'], name: '후쿠오카공항 국제선·CARGOPASS 수령', lat: 33.5848221, lng: 130.4442945 },
     ],
   },
 };
@@ -89,6 +92,7 @@ export const dailyRoutes = {
 export const modeDetails = {
   'airport-bus': { icon: '🚌', label: '공항버스' },
   bus: { icon: '🚌', label: '버스' },
+  transit: { icon: '🚆', label: '대중교통' },
   taxi: { icon: '🚕', label: '택시' },
   walk: { icon: '🚶', label: '도보' },
 };

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import { createDeferredTask, createRequestController, dailyRoutes, normalizeRoute, routePosition } from '../src/routes.js';
+import { events } from '../src/data.js';
 
 test('request controller aborts and settles only its latest request', () => {
   const cleared = [];
@@ -88,19 +89,33 @@ test('normalizeRoute removes adjacent duplicate coordinates without mutating inp
   assert.equal(input.stops.length, 3);
 });
 
-test('daily routes contain three meaningful non-duplicate stops per date', () => {
+test('daily routes contain itinerary-consistent non-duplicate stops per date', () => {
   assert.deepEqual(Object.keys(dailyRoutes), ['2026-08-28', '2026-08-29', '2026-08-30']);
-  for (const route of Object.values(dailyRoutes)) {
+  for (const [date, route] of Object.entries(dailyRoutes)) {
     const normalized = normalizeRoute(route);
     assert.ok(normalized.stops.length >= 3);
     assert.equal(normalized.stops.length, route.stops.length);
+    assert.equal(new Set(route.stops.map(stop => stop.id)).size, route.stops.length);
     normalized.stops.forEach(stop => {
+      assert.equal(typeof stop.id, 'string');
+      assert.ok(Array.isArray(stop.eventIds));
       assert.ok(Number.isFinite(stop.lat));
       assert.ok(Number.isFinite(stop.lng));
+      assert.ok(stop.eventIds.every(eventId => events.some(event => event.id === eventId && event.date === date)), stop.id);
     });
+    const routedEventIds=normalized.stops.flatMap(stop=>stop.eventIds);
+    const datedEventIds=events.filter(event=>event.date===date).map(event=>event.id);
+    assert.deepEqual(routedEventIds,datedEventIds,`${date} route must cover every event in chronological order`);
   }
-  assert.match(dailyRoutes['2026-08-29'].stops[0].name, /우나후지/);
-  assert.match(dailyRoutes['2026-08-30'].stops.at(-1).name, /공항/);
+  assert.deepEqual(dailyRoutes['2026-08-28'].stops.map(stop=>stop.id),['flight-out','airport-hotel','donki-whisky','convenience']);
+  assert.deepEqual(dailyRoutes['2026-08-29'].stops.map(stop=>stop.id),['sat-breakfast','unafuji','akachan-shopping','taxi-hotel','sat-dinner']);
+  assert.deepEqual(dailyRoutes['2026-08-29'].stops.slice(0,2).map(stop=>stop.eventIds),[['sat-breakfast'],['unafuji']]);
+  assert.equal(dailyRoutes['2026-08-29'].stops[0].modeToNext,'walk');
+  assert.deepEqual(dailyRoutes['2026-08-30'].stops.map(stop=>stop.id),['cargopass-handoff','zoo','cargopass-pickup']);
+  assert.match(dailyRoutes['2026-08-29'].summary,/라라포트/);
+  assert.doesNotMatch(dailyRoutes['2026-08-29'].summary,/동물원/);
+  assert.match(dailyRoutes['2026-08-30'].summary,/CARGOPASS.*트리아스 동물원/);
+  assert.doesNotMatch(dailyRoutes['2026-08-30'].summary,/오호리/);
 });
 
 test('routePosition interpolates by distance and selects the active segment mode', () => {
@@ -121,6 +136,20 @@ test('overview markup exposes date controls, animation controls and honest route
   assert.match(html, /id="route-toggle"/);
   assert.match(html, /id="route-progress"[^>]*aria-live="polite"/);
   assert.match(html, /일정 기준 동선/);
+});
+
+test('static route shortcuts and featured food match the revised itinerary', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /data-route="lalaport,hotel-nishitetsu-grand"/);
+  assert.match(html, /공항 → 호텔/);
+  assert.match(html, /우나후지 → 라라포트/);
+  assert.match(html, /origin=炭焼\+うな富士\+福岡大名別邸&destination=ららぽーと福岡/);
+  assert.match(html, /호텔 → 트리아스/);
+  assert.match(html, /트리아스 → 국제선/);
+  assert.match(html, /토요일 11:00~12:15/);
+  assert.match(html, /12:30~13:00 라라포트로 출발/);
+  assert.doesNotMatch(html, /data-route="unafuji,zoo"/);
+  assert.doesNotMatch(html, /13시 동물원 입장|12:00~12:10 택시 출발|트리아스 → 텐진/);
 });
 
 test('overview styling keeps the route map and controls mobile friendly', async () => {
