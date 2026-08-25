@@ -3,7 +3,7 @@ import { eventsForDate, toggleChecklist, toggleEvent, addCustomEvent, deleteCust
 import { addAttachment, listAttachments, getAttachment, deleteAttachment } from './storage.js';
 import { safeTooltipContent } from './security.js';
 import { applyTimelineMotion, dateTransitionDirection, observeReducedMotion, overviewMotionMode, prefersReducedMotion, revealElements, updateTabIndicator } from './motion.js';
-import { createDeferredTask, createRequestController, dailyRoutes, modeDetails, normalizeRoute, routePosition } from './routes.js';
+import { createDeferredTask, createRequestController, dailyRoutes, groupRouteStops, modeDetails, normalizeRoute, routePosition } from './routes.js';
 
 const KEY='fukuoka-planner-state-v1';
 const REMINDER_KEY='fukuoka-planner-reminder-date';
@@ -60,9 +60,16 @@ function renderOverviewRoute(){
   document.querySelector('#overview-date').textContent=route.label;document.querySelector('#overview-summary').textContent=route.summary;
   document.querySelector('#route-legend').innerHTML=route.stops.slice(0,-1).map((stop,index)=>{const detail=modeDetails[stop.modeToNext]??modeDetails.walk;return `<span>${index+1}→${index+2} ${detail.icon} ${esc(detail.label)}</span>`;}).join('');
   overviewRouteLayer=L.polyline(points,{color:'#a64037',weight:5,opacity:.85,dashArray:'10 8'}).addTo(map);
-  overviewStopMarkers=route.stops.map((stop,index)=>L.marker([stop.lat,stop.lng],{icon:L.divIcon({className:'route-stop-icon',html:`<span>${index+1}</span>`,iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip(safeTooltipContent(document,stop.name)));
+  const locationGroups=groupRouteStops(route);
+  overviewStopMarkers=locationGroups.map((group,index)=>{
+    const direction=index%2===0?'top':'bottom';
+    const offset=direction==='top'?[0,-12]:[0,12];const numberLabel=group.numbers.join('·');const placeLabel=group.names.join(' / ');
+    return L.marker([group.lat,group.lng],{icon:L.divIcon({className:'route-stop-icon',html:`<span>${numberLabel}</span>`,iconSize:[44,32],iconAnchor:[22,16]})})
+      .bindTooltip(safeTooltipContent(document,placeLabel),{permanent:true,direction,offset,className:'route-stop-label',opacity:.96})
+      .addTo(map);
+  });
   transportMarker=L.marker(points[0],{icon:transportIcon(route.stops[0].modeToNext),zIndexOffset:1000,interactive:false}).addTo(map);transportMarker.routeMode=route.stops[0].modeToNext;
-  map.fitBounds(overviewRouteLayer.getBounds(),{padding:[28,28],maxZoom:14});
+  map.stop();map.fitBounds(overviewRouteLayer.getBounds(),{paddingTopLeft:[100,72],paddingBottomRight:[100,72],maxZoom:14,animate:false});
   if(reducedMotion)renderRouteMotionState();else{updateRoutePosition(0);startRouteAnimation(true);}
 }
 document.querySelector('#overview-days').addEventListener('click',event=>{const button=event.target.closest('[data-route-date]');if(!button||button.dataset.routeDate===selectedRouteDate)return;if(routeRequests.cancel())document.querySelector('#map-status').textContent='날짜 변경으로 자동차 경로 계산을 취소했어요.';selectedRouteDate=button.dataset.routeDate;document.querySelectorAll('#overview-days button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));});renderOverviewRoute();});

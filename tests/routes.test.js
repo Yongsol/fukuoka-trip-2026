@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import { createDeferredTask, createRequestController, dailyRoutes, normalizeRoute, routePosition } from '../src/routes.js';
+import { createDeferredTask, createRequestController, dailyRoutes, groupRouteStops, normalizeRoute, routePosition } from '../src/routes.js';
 import { events } from '../src/data.js';
 
 test('request controller aborts and settles only its latest request', () => {
@@ -89,6 +89,18 @@ test('normalizeRoute removes adjacent duplicate coordinates without mutating inp
   assert.equal(input.stops.length, 3);
 });
 
+test('groupRouteStops combines repeated locations while preserving route numbers and names', () => {
+  const friday = groupRouteStops(dailyRoutes['2026-08-28']);
+  const hotel = friday.find(group => group.numbers.length > 1);
+  assert.deepEqual(hotel.numbers, [2, 4]);
+  assert.deepEqual(hotel.names, ['니시테츠 그랜드 호텔·텐진 저녁', '니시테츠 그랜드 호텔 복귀']);
+  assert.equal(friday.length, 3);
+
+  const saturday = groupRouteStops(dailyRoutes['2026-08-29']);
+  assert.deepEqual(saturday.find(group => group.numbers.length > 1).numbers, [1, 4]);
+  assert.equal(saturday.length, 4);
+});
+
 test('daily routes contain itinerary-consistent non-duplicate stops per date', () => {
   assert.deepEqual(Object.keys(dailyRoutes), ['2026-08-28', '2026-08-29', '2026-08-30']);
   for (const [date, route] of Object.entries(dailyRoutes)) {
@@ -152,17 +164,28 @@ test('static route shortcuts and featured food match the revised itinerary', asy
   assert.doesNotMatch(html, /13시 동물원 입장|12:00~12:10 택시 출발|트리아스 → 텐진/);
 });
 
-test('overview styling keeps the route map and controls mobile friendly', async () => {
+test('overview route markers keep place names visible without hover', async () => {
+  const app = await readFile(new URL('../src/app.js', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+  assert.match(app, /permanent:\s*true/);
+  assert.match(app, /className:\s*'route-stop-label'/);
+  assert.match(app, /paddingTopLeft:\s*\[100,72\]/);
+  assert.match(app, /paddingBottomRight:\s*\[100,72\]/);
+  assert.match(css, /\.route-stop-label/);
+});
+
+test('overview styling keeps the route map and date controls mobile friendly', async () => {
   const css = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.overview-card/);
   assert.match(css, /\.route-controls/);
   assert.match(css, /\.route-stop-icon/);
+  assert.match(css, /#date-chips\s+button\s*\{[^}]*flex:\s*0\s+0\s+auto/);
   assert.match(css, /#map\.panel\.active\s*\{\s*display:\s*block/);
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.transport-marker/);
 });
 
-test('offline shell includes routes module in cache v7', async () => {
+test('offline shell includes routes module in cache v11', async () => {
   const worker = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
-  assert.match(worker, /fukuoka-trip-2026-v7/);
+  assert.match(worker, /fukuoka-trip-2026-v11/);
   assert.match(worker, /\.\/src\/routes\.js/);
 });

@@ -109,6 +109,23 @@ export function normalizeRoute(route = {}) {
   return { ...route, stops };
 }
 
+export function groupRouteStops(route = {}) {
+  const groups = [];
+  const byCoordinates = new Map();
+  normalizeRoute(route).stops.forEach((stop, index) => {
+    const key = `${stop.lat},${stop.lng}`;
+    let group = byCoordinates.get(key);
+    if (!group) {
+      group = { lat: stop.lat, lng: stop.lng, numbers: [], names: [] };
+      byCoordinates.set(key, group);
+      groups.push(group);
+    }
+    group.numbers.push(index + 1);
+    if (!group.names.includes(stop.name)) group.names.push(stop.name);
+  });
+  return groups;
+}
+
 function segmentLength(a, b) {
   const meanLatitude = (a.lat + b.lat) * Math.PI / 360;
   return Math.hypot((b.lat - a.lat), (b.lng - a.lng) * Math.cos(meanLatitude));
