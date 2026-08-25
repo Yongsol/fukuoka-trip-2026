@@ -12,6 +12,31 @@ export function prefersReducedMotion(matchMedia = globalThis.matchMedia) {
   }
 }
 
+export function observeReducedMotion(onChange, matchMedia = globalThis.matchMedia) {
+  if (typeof matchMedia !== 'function') return () => {};
+  let mediaQuery;
+  try {
+    mediaQuery = matchMedia('(prefers-reduced-motion: reduce)');
+  } catch {
+    return () => {};
+  }
+  const listener = event => onChange(Boolean(event.matches));
+  if (typeof mediaQuery?.addEventListener === 'function') {
+    mediaQuery.addEventListener('change', listener);
+    return () => mediaQuery.removeEventListener?.('change', listener);
+  }
+  if (typeof mediaQuery?.addListener === 'function') {
+    mediaQuery.addListener(listener);
+    return () => mediaQuery.removeListener?.(listener);
+  }
+  return () => {};
+}
+
+export function overviewMotionMode(reducedMotion, overviewActive) {
+  if (reducedMotion) return 'static';
+  return overviewActive ? 'autoplay' : 'paused';
+}
+
 export function applyTimelineMotion(timeline, direction, reducedMotion) {
   timeline.classList.remove('timeline-forward', 'timeline-backward');
   if (reducedMotion || !['forward', 'backward'].includes(direction)) return;

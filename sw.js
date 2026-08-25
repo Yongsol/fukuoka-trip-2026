@@ -1,9 +1,9 @@
 const CACHE_PREFIX='fukuoka-trip-2026-';
-const CACHE='fukuoka-trip-2026-v6';
+const CACHE='fukuoka-trip-2026-v7';
 const LEGACY_CACHES=new Set(['fukuoka-planner-v3']);
 const SHELL=[
   './','./index.html','./styles.css','./src/app.js','./src/data.js','./src/planner.js',
-  './src/security.js','./src/storage.js','./src/motion.js','./manifest.webmanifest','./icons/icon.svg',
+  './src/security.js','./src/storage.js','./src/motion.js','./src/routes.js','./manifest.webmanifest','./icons/icon.svg',
   './icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet/leaflet.css','./vendor/leaflet/leaflet.js',
   './vendor/leaflet/images/marker-icon.png','./vendor/leaflet/images/marker-icon-2x.png',

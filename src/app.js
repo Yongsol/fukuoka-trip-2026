@@ -2,11 +2,15 @@ import { events, places, defaultChecklist, dateLabels, transportGuides, official
 import { eventsForDate, toggleChecklist, toggleEvent, addCustomEvent, deleteCustomEvent, categoryFilter, createBackup, restoreBackup, createICS, googleMapsUrl, downloadText, departureReminderDecision } from './planner.js';
 import { addAttachment, listAttachments, getAttachment, deleteAttachment } from './storage.js';
 import { safeTooltipContent } from './security.js';
-import { applyTimelineMotion, dateTransitionDirection, prefersReducedMotion, revealElements, updateTabIndicator } from './motion.js';
+import { applyTimelineMotion, dateTransitionDirection, observeReducedMotion, overviewMotionMode, prefersReducedMotion, revealElements, updateTabIndicator } from './motion.js';
+import { createDeferredTask, createRequestController, dailyRoutes, modeDetails, normalizeRoute, routePosition } from './routes.js';
 
 const KEY='fukuoka-planner-state-v1';
 const REMINDER_KEY='fukuoka-planner-reminder-date';
-let state=loadState(); let selectedDate='2026-08-28'; let map; let markers=[]; let routeLayer; let nominatimRequest=null; let routeRequest=null; let lastNominatimStarted=0;
+let state=loadState(); let selectedDate='2026-08-28'; let selectedRouteDate='2026-08-28'; let map; let markers=[]; let routeLayer; let overviewRouteLayer; let overviewStopMarkers=[]; let transportMarker; let nominatimRequest=null; let lastNominatimStarted=0;
+let routeAnimation={frame:null,progress:0,playing:false,startedAt:null};
+let routeAnimationGeneration=0;let reducedMotion=prefersReducedMotion();
+const routeRequests=createRequestController();const mapInitTask=createDeferredTask();
 function freshState(){return {version:1,checklist:structuredClone(defaultChecklist),customEvents:[],completedEvents:[]};}
 function mergeChecklistDefaults(clean){const byId=new Map(clean.checklist.map(item=>[item.id,item]));return {...clean,checklist:defaultChecklist.map(item=>({...structuredClone(item),done:byId.get(item.id)?.done??item.done}))};}
 function loadState(){try{const raw=localStorage.getItem(KEY);if(!raw)return freshState();return mergeChecklistDefaults(restoreBackup(raw));}catch{try{localStorage.removeItem(KEY);}catch{}return freshState();}}
@@ -15,14 +19,15 @@ function esc(value=''){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;',
 function toast(message){const el=document.querySelector('#toast');if(!el)return;el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3200);}
 
 function renderDates(){document.querySelector('#date-chips').innerHTML=Object.entries(dateLabels).map(([date,label])=>`<button data-date="${date}" class="${date===selectedDate?'active':''}">${label}</button>`).join('');}
-function renderTimeline(direction='still'){const all=[...events,...state.customEvents];const done=new Set(state.completedEvents);const list=eventsForDate(all,selectedDate);const timeline=document.querySelector('#timeline');timeline.innerHTML=list.map(e=>`<article class="event ${e.fixed?'fixed':''} ${done.has(e.id)?'done':''}"><button class="icon-btn" data-complete="${esc(e.id)}" aria-label="${done.has(e.id)?'완료 취소':'완료 표시'}">${done.has(e.id)?'✓':'○'}</button><span class="event-time">${esc(e.start)}${e.end?` — ${esc(e.end)}`:''}</span>${e.fixed?'<span class="tag">고정</span>':''}<h3>${esc(e.title)}</h3><p>📍 ${esc(e.location||'장소 미정')}</p>${e.notes?`<p>${esc(e.notes)}</p>`:''}${e.custom?`<div class="event-actions"><button class="icon-btn" data-delete="${esc(e.id)}" aria-label="일정 삭제">×</button></div>`:''}</article>`).join('')||'<p class="status">등록된 일정이 없어요.</p>';applyTimelineMotion(timeline,direction,prefersReducedMotion());}
+function renderTimeline(direction='still'){const all=[...events,...state.customEvents];const done=new Set(state.completedEvents);const list=eventsForDate(all,selectedDate);const timeline=document.querySelector('#timeline');timeline.innerHTML=list.map(e=>`<article class="event ${e.fixed?'fixed':''} ${done.has(e.id)?'done':''}"><button class="icon-btn" data-complete="${esc(e.id)}" aria-label="${done.has(e.id)?'완료 취소':'완료 표시'}">${done.has(e.id)?'✓':'○'}</button><span class="event-time">${esc(e.start)}${e.end?` — ${esc(e.end)}`:''}</span>${e.fixed?'<span class="tag">고정</span>':''}<h3>${esc(e.title)}</h3><p>📍 ${esc(e.location||'장소 미정')}</p>${e.notes?`<p>${esc(e.notes)}</p>`:''}${e.custom?`<div class="event-actions"><button class="icon-btn" data-delete="${esc(e.id)}" aria-label="일정 삭제">×</button></div>`:''}</article>`).join('')||'<p class="status">등록된 일정이 없어요.</p>';applyTimelineMotion(timeline,direction,reducedMotion);}
 function renderSchedule(direction='still'){renderDates();renderTimeline(direction);}
 function renderChecklist(){const done=state.checklist.filter(x=>x.done).length;const percent=Math.round(done/state.checklist.length*100)||0;document.querySelector('#check-progress').textContent=`${percent}%`;document.querySelector('#progress-bar').style.width=`${percent}%`;document.querySelector('#check-list').innerHTML=state.checklist.map(x=>`<label class="check-item"><input data-check="${esc(x.id)}" type="checkbox" ${x.done?'checked':''}><span>${esc(x.label)}</span><small>${esc(x.category)}</small></label>`).join('');}
 function renderFood(){document.querySelector('#food-list').innerHTML=places.filter(p=>p.category==='food'&&p.id!=='unafuji').map(p=>`<article class="food-card"><div><h3>${esc(p.name)}</h3><p>${esc(p.caption)}</p><p class="food-tip"><b>팁</b> ${esc(p.tip)}</p><div class="card-links"><a href="${googleMapsUrl(p)}" target="_blank" rel="noopener">Google Maps</a>${p.officialUrl?`<a href="${esc(p.officialUrl)}" target="_blank" rel="noopener">공식 사이트</a>`:''}</div></div></article>`).join('');}
 function renderTransport(){document.querySelector('#transport-guides').innerHTML=transportGuides.map(g=>`<article class="transport-card"><h3>${esc(g.title)}</h3><p><b>1순위</b> ${esc(g.primary)}</p><p><b>대안</b> ${esc(g.fallback)}</p><a class="important-link" href="${esc(g.mapsUrl)}" target="_blank" rel="noopener">Google Maps 대중교통 ↗</a></article>`).join('');document.querySelector('#official-links').innerHTML=officialLinks.map(link=>`<a class="important-link" href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.title)} ↗</a>`).join('');}
 
 const tabs=document.querySelector('.tabs');
-function showTab(id){const activeButton=tabs.querySelector(`[data-tab="${id}"]`);tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('active',b===activeButton);b.toggleAttribute('aria-current',b===activeButton)});document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));updateTabIndicator(tabs,activeButton);if(id==='map')setTimeout(initMap,0);if(id==='vault')renderAttachments();}
+const isOverviewActive=()=>document.querySelector('#map')?.classList.contains('active')===true;
+function showTab(id){const activeButton=tabs.querySelector(`[data-tab="${id}"]`);tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('active',b===activeButton);b.toggleAttribute('aria-current',b===activeButton)});document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));updateTabIndicator(tabs,activeButton);if(id==='map')mapInitTask.schedule(initMap,isOverviewActive);else{mapInitTask.cancel();stopRouteAnimation();}if(id==='vault')renderAttachments();}
 tabs.addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
 document.querySelector('#date-chips').addEventListener('click',e=>{const b=e.target.closest('[data-date]');if(b){const direction=dateTransitionDirection(selectedDate,b.dataset.date);selectedDate=b.dataset.date;renderSchedule(direction);}});
 document.querySelector('#timeline').addEventListener('click',e=>{const complete=e.target.closest('[data-complete]');if(complete&&persist(toggleEvent(state,complete.dataset.complete)))renderTimeline();const del=e.target.closest('[data-delete]');if(del&&confirm('이 일정을 삭제할까요?')&&persist(deleteCustomEvent(state,del.dataset.delete))){renderTimeline();toast('일정을 삭제했어요.');}});
@@ -30,7 +35,38 @@ document.querySelector('#check-list').addEventListener('change',e=>{if(e.target.
 
 const dialog=document.querySelector('#event-dialog');document.querySelector('#add-open').onclick=()=>dialog.showModal();document.querySelector('#dialog-close').onclick=()=>dialog.close();document.querySelector('#event-form').onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));try{const next=addCustomEvent(state,data);if(!persist(next))return;selectedDate=data.date;renderSchedule();e.currentTarget.reset();dialog.close();toast('새 일정을 추가했어요.');}catch(error){document.querySelector('#form-error').textContent=error.message;}};
 
-function initMap(){if(map){map.invalidateSize();return;}if(!window.L){document.querySelector('#map-status').textContent='지도 라이브러리를 불러오지 못했어요. 일정과 Google Maps 링크는 계속 사용할 수 있습니다.';return;}map=L.map('leaflet-map',{zoomControl:true}).setView([33.606,130.42],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);renderMarkers('all');}
+function initMap(){if(map){map.invalidateSize();renderOverviewRoute();return;}if(!window.L){document.querySelector('#map-status').textContent='지도 라이브러리를 불러오지 못했어요. 일정과 Google Maps 링크는 계속 사용할 수 있습니다.';return;}map=L.map('leaflet-map',{zoomControl:true}).setView([33.606,130.42],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);renderMarkers('all');renderOverviewRoute();}
+function stopRouteAnimation(){routeAnimationGeneration+=1;if(routeAnimation.frame!==null)cancelAnimationFrame(routeAnimation.frame);routeAnimation={...routeAnimation,frame:null,playing:false,startedAt:null};}
+function transportIcon(mode){const detail=modeDetails[mode]??modeDetails.walk;return L.divIcon({className:'transport-marker',html:`<span aria-hidden="true">${detail.icon}</span>`,iconSize:[38,38],iconAnchor:[19,19]});}
+function updateRoutePosition(progress){
+  const route=normalizeRoute(dailyRoutes[selectedRouteDate]);const position=routePosition(route,progress);if(!position)return;
+  transportMarker?.setLatLng([position.lat,position.lng]);
+  if(transportMarker?.routeMode!==position.mode){transportMarker?.setIcon(transportIcon(position.mode));if(transportMarker)transportMarker.routeMode=position.mode;}
+  const stop=route.stops[position.stopIndex];const detail=modeDetails[position.mode]??modeDetails.walk;
+  const text=`${position.stopIndex+1}/${route.stops.length} ${stop.name}${progress<1?` · ${detail.icon} ${detail.label}`:''}`;
+  const progressElement=document.querySelector('#route-progress');if(progressElement.textContent!==text)progressElement.textContent=text;
+}
+function startRouteAnimation(reset=false){
+  const toggle=document.querySelector('#route-toggle');if(reducedMotion||!isOverviewActive())return;
+  stopRouteAnimation();if(reset||routeAnimation.progress>=1)routeAnimation.progress=0;
+  routeAnimation.playing=true;const base=routeAnimation.progress;const generation=routeAnimationGeneration;toggle.textContent='⏸ 일시정지';
+  const tick=now=>{if(generation!==routeAnimationGeneration||!routeAnimation.playing)return;if(routeAnimation.startedAt===null)routeAnimation.startedAt=now;routeAnimation.progress=Math.min(1,base+(now-routeAnimation.startedAt)/6500);updateRoutePosition(routeAnimation.progress);if(routeAnimation.progress<1)routeAnimation.frame=requestAnimationFrame(tick);else{routeAnimation.playing=false;routeAnimation.frame=null;toggle.textContent='↻ 다시 재생';}};
+  routeAnimation.frame=requestAnimationFrame(tick);
+}
+function renderRouteMotionState(){const route=normalizeRoute(dailyRoutes[selectedRouteDate]);const toggle=document.querySelector('#route-toggle');if(reducedMotion){stopRouteAnimation();routeAnimation.progress=0;updateRoutePosition(0);toggle.disabled=true;toggle.textContent='전체 경로 정적 표시';document.querySelector('#route-progress').textContent=`전체 경로 표시 · ${route.stops.length}개 정류장`;}else{toggle.disabled=false;updateRoutePosition(routeAnimation.progress);toggle.textContent=routeAnimation.progress>=1?'↻ 다시 재생':'▶ 재생';}}
+function renderOverviewRoute(){
+  if(!map)return;stopRouteAnimation();routeAnimation.progress=0;routeLayer?.remove();routeLayer=undefined;overviewRouteLayer?.remove();overviewStopMarkers.forEach(marker=>marker.remove());overviewStopMarkers=[];transportMarker?.remove();
+  const route=normalizeRoute(dailyRoutes[selectedRouteDate]);const points=route.stops.map(stop=>[stop.lat,stop.lng]);
+  document.querySelector('#overview-date').textContent=route.label;document.querySelector('#overview-summary').textContent=route.summary;
+  document.querySelector('#route-legend').innerHTML=route.stops.slice(0,-1).map((stop,index)=>{const detail=modeDetails[stop.modeToNext]??modeDetails.walk;return `<span>${index+1}→${index+2} ${detail.icon} ${esc(detail.label)}</span>`;}).join('');
+  overviewRouteLayer=L.polyline(points,{color:'#a64037',weight:5,opacity:.85,dashArray:'10 8'}).addTo(map);
+  overviewStopMarkers=route.stops.map((stop,index)=>L.marker([stop.lat,stop.lng],{icon:L.divIcon({className:'route-stop-icon',html:`<span>${index+1}</span>`,iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip(safeTooltipContent(document,stop.name)));
+  transportMarker=L.marker(points[0],{icon:transportIcon(route.stops[0].modeToNext),zIndexOffset:1000,interactive:false}).addTo(map);transportMarker.routeMode=route.stops[0].modeToNext;
+  map.fitBounds(overviewRouteLayer.getBounds(),{padding:[28,28],maxZoom:14});
+  if(reducedMotion)renderRouteMotionState();else{updateRoutePosition(0);startRouteAnimation(true);}
+}
+document.querySelector('#overview-days').addEventListener('click',event=>{const button=event.target.closest('[data-route-date]');if(!button||button.dataset.routeDate===selectedRouteDate)return;if(routeRequests.cancel())document.querySelector('#map-status').textContent='날짜 변경으로 자동차 경로 계산을 취소했어요.';selectedRouteDate=button.dataset.routeDate;document.querySelectorAll('#overview-days button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));});renderOverviewRoute();});
+document.querySelector('#route-toggle').addEventListener('click',()=>{if(reducedMotion)return;if(routeAnimation.playing){stopRouteAnimation();document.querySelector('#route-toggle').textContent='▶ 계속 재생';}else startRouteAnimation(routeAnimation.progress>=1);});
 function hasCoordinates(p){return Number.isFinite(p.lat)&&Number.isFinite(p.lng);}
 function renderMarkers(category){if(!map)return;markers.forEach(m=>m.remove());markers=categoryFilter(places,category).filter(hasCoordinates).map(p=>L.marker([p.lat,p.lng]).addTo(map).bindTooltip(safeTooltipContent(document,p.name)).on('click',()=>selectPlace(p)));}
 function selectPlace(p){document.querySelector('#place-card').innerHTML=`<h3>${esc(p.name)}</h3><p>${esc(p.caption||'검색한 장소')}</p><a class="important-link" href="${googleMapsUrl(p)}" target="_blank" rel="noopener">Google Maps에서 보기 ↗</a>`;if(hasCoordinates(p))map?.panTo([p.lat,p.lng]);}
@@ -56,10 +92,10 @@ document.querySelector('#search-form').onsubmit=async e=>{
   finally{clearTimeout(timeout);nominatimRequest=null;submit.disabled=false;}
 };
 document.querySelector('.route-actions').onclick=async e=>{
-  const button=e.target.closest('[data-route]');if(!button||!map||routeRequest)return;
+  const button=e.target.closest('[data-route]');if(!button||!map||routeRequests.isBusy())return;
   const [a,b]=button.dataset.route.split(',').map(id=>places.find(p=>p.id===id));const status=document.querySelector('#map-status');if(!hasCoordinates(a)||!hasCoordinates(b)){status.textContent='좌표가 없는 장소는 Google Maps 검색 링크를 이용해 주세요.';return;}
-  routeRequest=new AbortController();button.disabled=true;status.textContent='자동차 경로를 계산하고 있어요…';const timeout=setTimeout(()=>routeRequest?.abort(),12000);
-  try{const response=await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`,{signal:routeRequest.signal});if(!response.ok)throw new Error();const json=await response.json();if(json.code!=='Ok'||!json.routes?.[0])throw new Error();routeLayer?.remove();routeLayer=L.geoJSON(json.routes[0].geometry,{style:{color:'#ef695c',weight:5}}).addTo(map);map.fitBounds(routeLayer.getBounds(),{padding:[30,30]});status.textContent=`예상 ${(json.routes[0].duration/60).toFixed(0)}분 · ${(json.routes[0].distance/1000).toFixed(1)}km (자동차·실시간 교통 미반영)`;}catch{status.textContent='자동차 경로 서비스에 연결할 수 없어요. Google Maps 길찾기를 이용해 주세요.';selectPlace(b);}finally{clearTimeout(timeout);routeRequest=null;button.disabled=false;}
+  button.disabled=true;status.textContent='자동차 경로를 계산하고 있어요…';const request=routeRequests.begin(12000,()=>{button.disabled=false;});
+  try{const response=await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`,{signal:request.controller.signal});if(!response.ok)throw new Error();const json=await response.json();if(json.code!=='Ok'||!json.routes?.[0])throw new Error();if(!routeRequests.isCurrent(request))return;routeLayer?.remove();routeLayer=L.geoJSON(json.routes[0].geometry,{style:{color:'#ef695c',weight:5}}).addTo(map);map.fitBounds(routeLayer.getBounds(),{padding:[30,30]});status.textContent=`예상 ${(json.routes[0].duration/60).toFixed(0)}분 · ${(json.routes[0].distance/1000).toFixed(1)}km (자동차·실시간 교통 미반영)`;}catch{if(!routeRequests.isCurrent(request))return;status.textContent='자동차 경로 서비스에 연결할 수 없어요. Google Maps 길찾기를 이용해 주세요.';selectPlace(b);}finally{routeRequests.finish(request);}
 };
 
 document.querySelector('#ics').onclick=()=>{downloadText('fukuoka-trip-2026.ics',createICS([...events,...state.customEvents]),'text/calendar;charset=utf-8');toast('캘린더 파일을 만들었어요.');};document.querySelector('#backup').onclick=()=>{downloadText('fukuoka-planner-backup.json',createBackup(state),'application/json');toast('백업을 저장했어요.');};document.querySelector('#restore').onchange=async e=>{try{if(!e.target.files[0])return;const next=mergeChecklistDefaults(restoreBackup(await e.target.files[0].text()));if(!persist(next))return;renderSchedule();renderChecklist();toast('백업을 복원했어요.');}catch(error){toast(`복원 실패: ${error.message}`);}finally{e.target.value='';}};
@@ -71,6 +107,7 @@ function networkStatus(){const pill=document.querySelector('#online-pill');pill.
 function renderDDay(){const today=new Date();today.setHours(0,0,0,0);const departure=new Date(2026,7,28);const days=Math.ceil((departure-today)/86400000);document.querySelector('#d-day').textContent=days>0?`D-${days}`:days===0?'D-DAY':days>=-2?'여행 중':'다녀온 여행';}renderDDay();
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>toast('오프라인 기능을 준비하지 못했지만 앱은 계속 사용할 수 있어요.')));
 renderSchedule();renderChecklist();renderFood();renderTransport();maybeDepartureReminder();
-if(!prefersReducedMotion())document.body.classList.add('motion-ready');
+document.body.classList.toggle('motion-ready',!reducedMotion);
+observeReducedMotion(value=>{if(value===reducedMotion)return;const mode=overviewMotionMode(value,isOverviewActive());reducedMotion=value;document.body.classList.toggle('motion-ready',!reducedMotion);if(mode==='autoplay'&&map)renderOverviewRoute();else renderRouteMotionState();});
 requestAnimationFrame(()=>{updateTabIndicator(tabs,tabs.querySelector('.active'));revealElements();});
 addEventListener('resize',()=>updateTabIndicator(tabs,tabs.querySelector('.active')),{passive:true});
