@@ -90,12 +90,38 @@ export const dailyRoutes = {
 };
 
 export const modeDetails = {
-  'airport-bus': { icon: '🚌', label: '공항버스' },
-  bus: { icon: '🚌', label: '버스' },
-  transit: { icon: '🚆', label: '대중교통' },
-  taxi: { icon: '🚕', label: '택시' },
-  walk: { icon: '🚶', label: '도보' },
+  'airport-bus': { icon: '🚌', label: '공항버스', color: '#2563a6', googleTravelMode: 'transit' },
+  bus: { icon: '🚌', label: '버스', color: '#2563a6', googleTravelMode: 'transit' },
+  transit: { icon: '🚆', label: '대중교통', color: '#2f7d64', googleTravelMode: 'transit' },
+  taxi: { icon: '🚕', label: '택시', color: '#d97706', googleTravelMode: 'driving' },
+  walk: { icon: '🚶', label: '도보', color: '#7c3aed', googleTravelMode: 'walking' },
 };
+
+export function buildRouteSegments(route = {}) {
+  const stops = normalizeRoute(route).stops;
+  return stops.slice(0, -1).map((start, index) => {
+    const end = stops[index + 1];
+    const mode = start.modeToNext ?? 'walk';
+    const detail = modeDetails[mode] ?? modeDetails.walk;
+    const query = new URLSearchParams({
+      api: '1',
+      origin: `${start.lat},${start.lng}`,
+      destination: `${end.lat},${end.lng}`,
+      travelmode: detail.googleTravelMode,
+    });
+    return {
+      index,
+      start,
+      end,
+      mode,
+      detail,
+      googleTravelMode: detail.googleTravelMode,
+      googleMapsUrl: `https://www.google.com/maps/dir/?${query}`,
+      routeKind: mode === 'walk' ? '실제 도보 경로' : mode === 'taxi' ? '실제 도로 경로' : '도로망 참고 경로',
+      osrmUrl: `${mode === 'walk' ? 'https://routing.openstreetmap.de/routed-foot/route/v1/driving' : 'https://router.project-osrm.org/route/v1/driving'}/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`,
+    };
+  });
+}
 
 export function normalizeRoute(route = {}) {
   const stops = [];

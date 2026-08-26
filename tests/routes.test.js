@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import { createDeferredTask, createRequestController, dailyRoutes, groupRouteStops, normalizeRoute, routePosition } from '../src/routes.js';
+import { buildRouteSegments, createDeferredTask, createRequestController, dailyRoutes, groupRouteStops, normalizeRoute, routePosition } from '../src/routes.js';
 import { events } from '../src/data.js';
 
 test('request controller aborts and settles only its latest request', () => {
@@ -141,13 +141,30 @@ test('routePosition interpolates by distance and selects the active segment mode
   assert.deepEqual(routePosition(route, 1), { lat: 0, lng: 3, segmentIndex: 1, stopIndex: 2, mode: 'bus' });
 });
 
-test('overview markup exposes date controls, animation controls and honest route labeling', async () => {
+test('buildRouteSegments creates exact clickable Google Maps directions for every leg', () => {
+  const segments = buildRouteSegments({ stops: [
+    { name: '호텔', lat: 33.5, lng: 130.4, modeToNext: 'walk' },
+    { name: '식당', lat: 33.6, lng: 130.5, modeToNext: 'taxi' },
+    { name: '동물원', lat: 33.7, lng: 130.6 },
+  ] });
+  assert.equal(segments.length, 2);
+  assert.deepEqual(segments.map(segment => segment.mode), ['walk', 'taxi']);
+  assert.deepEqual(segments.map(segment => segment.googleTravelMode), ['walking', 'driving']);
+  assert.match(segments[0].googleMapsUrl, /origin=33\.5%2C130\.4/);
+  assert.match(segments[0].googleMapsUrl, /destination=33\.6%2C130\.5/);
+  assert.match(segments[0].googleMapsUrl, /travelmode=walking/);
+  assert.match(segments[0].osrmUrl, /routing\.openstreetmap\.de\/routed-foot\/route\/v1\/driving/);
+  assert.match(segments[1].osrmUrl, /router\.project-osrm\.org\/route\/v1\/driving\/130\.5,33\.6;130\.6,33\.7/);
+});
+
+test('overview markup exposes date controls, animation controls and actual route labeling', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /data-tab="map"[^>]*>[\s\S]*?오버뷰<\/button>/);
   assert.match(html, /id="overview-days"/);
   assert.match(html, /id="route-toggle"/);
   assert.match(html, /id="route-progress"[^>]*aria-live="polite"/);
-  assert.match(html, /일정 기준 동선/);
+  assert.match(html, /실제 도로 경로/);
+  assert.match(html, /구간을 누르면 Google Maps의 해당 이동수단 길찾기/);
 });
 
 test('static route shortcuts and featured food match the revised itinerary', async () => {
@@ -162,6 +179,15 @@ test('static route shortcuts and featured food match the revised itinerary', asy
   assert.match(html, /12:30~13:00 라라포트로 출발/);
   assert.doesNotMatch(html, /data-route="unafuji,zoo"/);
   assert.doesNotMatch(html, /13시 동물원 입장|12:00~12:10 택시 출발|트리아스 → 텐진/);
+});
+
+test('overview route renders fetched road geometry and makes every segment clickable', async () => {
+  const app = await readFile(new URL('../src/app.js', import.meta.url), 'utf8');
+  assert.match(app, /buildRouteSegments/);
+  assert.match(app, /fetch\(segment\.osrmUrl/);
+  assert.match(app, /L\.geoJSON/);
+  assert.match(app, /window\.open\(segment\.googleMapsUrl/);
+  assert.match(app, /class="route-leg-link"/);
 });
 
 test('overview route markers keep place names visible without hover', async () => {
@@ -184,8 +210,17 @@ test('overview styling keeps the route map and date controls mobile friendly', a
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.transport-marker/);
 });
 
-test('offline shell includes routes module in cache v11', async () => {
+test('offline shell includes routes module in cache v12', async () => {
   const worker = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
-  assert.match(worker, /fukuoka-trip-2026-v11/);
+  assert.match(worker, /fukuoka-trip-2026-v12/);
   assert.match(worker, /\.\/src\/routes\.js/);
+});
+
+test('deployed CSP permits both driving and walking route providers', async () => {
+  const headers = await readFile(new URL('../_headers', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  for (const source of ['https://router.project-osrm.org', 'https://routing.openstreetmap.de']) {
+    assert.match(headers, new RegExp(source.replaceAll('.', '\\.') ));
+    assert.match(html, new RegExp(source.replaceAll('.', '\\.') ));
+  }
 });

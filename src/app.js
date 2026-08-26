@@ -3,11 +3,11 @@ import { eventsForDate, toggleChecklist, toggleEvent, addCustomEvent, deleteCust
 import { addAttachment, listAttachments, getAttachment, deleteAttachment } from './storage.js';
 import { safeTooltipContent } from './security.js';
 import { applyTimelineMotion, dateTransitionDirection, observeReducedMotion, overviewMotionMode, prefersReducedMotion, revealElements, updateTabIndicator } from './motion.js';
-import { createDeferredTask, createRequestController, dailyRoutes, groupRouteStops, modeDetails, normalizeRoute, routePosition } from './routes.js';
+import { buildRouteSegments, createDeferredTask, createRequestController, dailyRoutes, groupRouteStops, modeDetails, normalizeRoute, routePosition } from './routes.js';
 
 const KEY='fukuoka-planner-state-v1';
 const REMINDER_KEY='fukuoka-planner-reminder-date';
-let state=loadState(); let selectedDate='2026-08-28'; let selectedRouteDate='2026-08-28'; let map; let markers=[]; let routeLayer; let overviewRouteLayer; let overviewStopMarkers=[]; let transportMarker; let nominatimRequest=null; let lastNominatimStarted=0;
+let state=loadState(); let selectedDate='2026-08-28'; let selectedRouteDate='2026-08-28'; let map; let markers=[]; let routeLayer; let overviewRouteLayer; let overviewStopMarkers=[]; let transportMarker; let overviewRouteRequest; let nominatimRequest=null; let lastNominatimStarted=0;
 let routeAnimation={frame:null,progress:0,playing:false,startedAt:null};
 let routeAnimationGeneration=0;let reducedMotion=prefersReducedMotion();
 const routeRequests=createRequestController();const mapInitTask=createDeferredTask();
@@ -27,7 +27,7 @@ function renderTransport(){document.querySelector('#transport-guides').innerHTML
 
 const tabs=document.querySelector('.tabs');
 const isOverviewActive=()=>document.querySelector('#map')?.classList.contains('active')===true;
-function showTab(id){const activeButton=tabs.querySelector(`[data-tab="${id}"]`);tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('active',b===activeButton);b.toggleAttribute('aria-current',b===activeButton)});document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));updateTabIndicator(tabs,activeButton);if(id==='map')mapInitTask.schedule(initMap,isOverviewActive);else{mapInitTask.cancel();stopRouteAnimation();}if(id==='vault')renderAttachments();}
+function showTab(id){const activeButton=tabs.querySelector(`[data-tab="${id}"]`);tabs.querySelectorAll('button').forEach(b=>{b.classList.toggle('active',b===activeButton);b.toggleAttribute('aria-current',b===activeButton)});document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));updateTabIndicator(tabs,activeButton);if(id==='map')mapInitTask.schedule(initMap,isOverviewActive);else{overviewRouteRequest?.abort();mapInitTask.cancel();stopRouteAnimation();}if(id==='vault')renderAttachments();}
 tabs.addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
 document.querySelector('#date-chips').addEventListener('click',e=>{const b=e.target.closest('[data-date]');if(b){const direction=dateTransitionDirection(selectedDate,b.dataset.date);selectedDate=b.dataset.date;renderSchedule(direction);}});
 document.querySelector('#timeline').addEventListener('click',e=>{const complete=e.target.closest('[data-complete]');if(complete&&persist(toggleEvent(state,complete.dataset.complete)))renderTimeline();const del=e.target.closest('[data-delete]');if(del&&confirm('이 일정을 삭제할까요?')&&persist(deleteCustomEvent(state,del.dataset.delete))){renderTimeline();toast('일정을 삭제했어요.');}});
@@ -54,26 +54,60 @@ function startRouteAnimation(reset=false){
   routeAnimation.frame=requestAnimationFrame(tick);
 }
 function renderRouteMotionState(){const route=normalizeRoute(dailyRoutes[selectedRouteDate]);const toggle=document.querySelector('#route-toggle');if(reducedMotion){stopRouteAnimation();routeAnimation.progress=0;updateRoutePosition(0);toggle.disabled=true;toggle.textContent='전체 경로 정적 표시';document.querySelector('#route-progress').textContent=`전체 경로 표시 · ${route.stops.length}개 정류장`;}else{toggle.disabled=false;updateRoutePosition(routeAnimation.progress);toggle.textContent=routeAnimation.progress>=1?'↻ 다시 재생':'▶ 재생';}}
-function renderOverviewRoute(){
-  if(!map)return;stopRouteAnimation();routeAnimation.progress=0;routeLayer?.remove();routeLayer=undefined;overviewRouteLayer?.remove();overviewStopMarkers.forEach(marker=>marker.remove());overviewStopMarkers=[];transportMarker?.remove();
-  const route=normalizeRoute(dailyRoutes[selectedRouteDate]);const points=route.stops.map(stop=>[stop.lat,stop.lng]);
+async function fetchOverviewSegment(segment, signal){
+  const controller=new AbortController();const relayAbort=()=>controller.abort();signal.addEventListener('abort',relayAbort,{once:true});const timeoutId=setTimeout(()=>controller.abort(),12000);
+  try{
+    const response=await fetch(segment.osrmUrl,{signal:controller.signal});
+    if(!response.ok)throw new Error('route request failed');
+    const json=await response.json();
+    if(json.code!=='Ok'||!json.routes?.[0]?.geometry)throw new Error('route geometry missing');
+    return json.routes[0];
+  }finally{clearTimeout(timeoutId);signal.removeEventListener('abort',relayAbort);}
+}
+function openRouteSegment(segment){window.open(segment.googleMapsUrl,'_blank','noopener');}
+function addClickableSegment(segment, geometry, fallback=false){
+  const tooltip=`${segment.index+1}→${segment.index+2} ${segment.detail.icon} ${segment.detail.label} · ${segment.routeKind} · 눌러서 Google Maps 열기`;
+  const style={color:segment.detail.color,weight:fallback?5:7,opacity:fallback ? .58 : .9,dashArray:fallback?'8 8':undefined,lineCap:'round',lineJoin:'round'};
+  const layer=geometry?L.geoJSON(geometry,{style}):L.polyline([[segment.start.lat,segment.start.lng],[segment.end.lat,segment.end.lng]],style);
+  layer.bindTooltip(tooltip,{sticky:true,className:'route-line-tooltip'}).on('click',()=>openRouteSegment(segment)).addTo(overviewRouteLayer);
+  return layer;
+}
+async function renderOverviewRoute(){
+  if(!map)return;stopRouteAnimation();routeAnimation.progress=0;overviewRouteRequest?.abort();overviewRouteRequest=new AbortController();
+  const request=overviewRouteRequest;routeLayer?.remove();routeLayer=undefined;overviewRouteLayer?.remove();overviewStopMarkers.forEach(marker=>marker.remove());overviewStopMarkers=[];transportMarker?.remove();transportMarker=undefined;markers.forEach(marker=>marker.remove());markers=[];
+  const route=normalizeRoute(dailyRoutes[selectedRouteDate]);const points=route.stops.map(stop=>[stop.lat,stop.lng]);const segments=buildRouteSegments(route);
   document.querySelector('#overview-date').textContent=route.label;document.querySelector('#overview-summary').textContent=route.summary;
-  document.querySelector('#route-legend').innerHTML=route.stops.slice(0,-1).map((stop,index)=>{const detail=modeDetails[stop.modeToNext]??modeDetails.walk;return `<span>${index+1}→${index+2} ${detail.icon} ${esc(detail.label)}</span>`;}).join('');
-  overviewRouteLayer=L.polyline(points,{color:'#a64037',weight:5,opacity:.85,dashArray:'10 8'}).addTo(map);
+  document.querySelector('#route-legend').innerHTML=segments.map(segment=>`<a class="route-leg-link" href="${esc(segment.googleMapsUrl)}" target="_blank" rel="noopener"><i style="--route-color:${segment.detail.color}"></i><span>${segment.index+1}→${segment.index+2} ${segment.detail.icon} ${esc(segment.detail.label)}</span><small>${esc(segment.start.name)} → ${esc(segment.end.name)} · ${esc(segment.routeKind)}</small></a>`).join('');
+  overviewRouteLayer=L.featureGroup().addTo(map);const fallbackLayers=segments.map(segment=>addClickableSegment(segment,null,true));
   const locationGroups=groupRouteStops(route);
   overviewStopMarkers=locationGroups.map((group,index)=>{
     const direction=index%2===0?'top':'bottom';
     const offset=direction==='top'?[0,-12]:[0,12];const numberLabel=group.numbers.join('·');const placeLabel=group.names.join(' / ');
     return L.marker([group.lat,group.lng],{icon:L.divIcon({className:'route-stop-icon',html:`<span>${numberLabel}</span>`,iconSize:[44,32],iconAnchor:[22,16]})})
       .bindTooltip(safeTooltipContent(document,placeLabel),{permanent:true,direction,offset,className:'route-stop-label',opacity:.96})
+      .on('click',()=>window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${group.lat},${group.lng}`)}`,'_blank','noopener'))
       .addTo(map);
   });
-  transportMarker=L.marker(points[0],{icon:transportIcon(route.stops[0].modeToNext),zIndexOffset:1000,interactive:false}).addTo(map);transportMarker.routeMode=route.stops[0].modeToNext;
-  map.stop();map.fitBounds(overviewRouteLayer.getBounds(),{paddingTopLeft:[100,72],paddingBottomRight:[100,72],maxZoom:14,animate:false});
-  if(reducedMotion)renderRouteMotionState();else{updateRoutePosition(0);startRouteAnimation(true);}
+  map.stop();map.fitBounds(L.latLngBounds(points),{paddingTopLeft:[100,72],paddingBottomRight:[100,72],maxZoom:14,animate:false});
+  const progressElement=document.querySelector('#route-progress');const toggle=document.querySelector('#route-toggle');toggle.disabled=true;toggle.textContent='경로 불러오는 중…';progressElement.textContent=`도로망 경로 계산 중 · ${segments.length}개 구간`;
+  let loaded=0;let completed=0;
+  const tasks=segments.map(async(segment,index)=>{
+    try{
+      const result=await fetchOverviewSegment(segment,request.signal);
+      if(request!==overviewRouteRequest||request.signal.aborted)return;
+      fallbackLayers[index].remove();addClickableSegment(segment,result.geometry);loaded+=1;
+      map.fitBounds(overviewRouteLayer.getBounds(),{paddingTopLeft:[100,72],paddingBottomRight:[100,72],maxZoom:14,animate:false});
+    }catch{}
+    finally{
+      completed+=1;
+      if(request===overviewRouteRequest&&!request.signal.aborted)progressElement.textContent=completed<segments.length?`${completed}/${segments.length}개 구간 확인 · 성공 ${loaded}`:loaded===segments.length?`도로망 경로 표시 · ${loaded}개 구간 · 선을 눌러 길찾기`:`${loaded}/${segments.length}개 도로망 경로 표시 · 나머지는 직선 대체`;
+    }
+  });
+  await Promise.allSettled(tasks);
+  if(request===overviewRouteRequest){toggle.disabled=false;toggle.textContent='↻ 실제 경로 새로고침';}
 }
-document.querySelector('#overview-days').addEventListener('click',event=>{const button=event.target.closest('[data-route-date]');if(!button||button.dataset.routeDate===selectedRouteDate)return;if(routeRequests.cancel())document.querySelector('#map-status').textContent='날짜 변경으로 자동차 경로 계산을 취소했어요.';selectedRouteDate=button.dataset.routeDate;document.querySelectorAll('#overview-days button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));});renderOverviewRoute();});
-document.querySelector('#route-toggle').addEventListener('click',()=>{if(reducedMotion)return;if(routeAnimation.playing){stopRouteAnimation();document.querySelector('#route-toggle').textContent='▶ 계속 재생';}else startRouteAnimation(routeAnimation.progress>=1);});
+document.querySelector('#overview-days').addEventListener('click',event=>{const button=event.target.closest('[data-route-date]');if(!button||button.dataset.routeDate===selectedRouteDate)return;overviewRouteRequest?.abort();if(routeRequests.cancel())document.querySelector('#map-status').textContent='날짜 변경으로 자동차 경로 계산을 취소했어요.';selectedRouteDate=button.dataset.routeDate;document.querySelectorAll('#overview-days button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));});renderOverviewRoute();});
+document.querySelector('#route-toggle').addEventListener('click',()=>renderOverviewRoute());
 function hasCoordinates(p){return Number.isFinite(p.lat)&&Number.isFinite(p.lng);}
 function renderMarkers(category){if(!map)return;markers.forEach(m=>m.remove());markers=categoryFilter(places,category).filter(hasCoordinates).map(p=>L.marker([p.lat,p.lng]).addTo(map).bindTooltip(safeTooltipContent(document,p.name)).on('click',()=>selectPlace(p)));}
 function selectPlace(p){document.querySelector('#place-card').innerHTML=`<h3>${esc(p.name)}</h3><p>${esc(p.caption||'검색한 장소')}</p><a class="important-link" href="${googleMapsUrl(p)}" target="_blank" rel="noopener">Google Maps에서 보기 ↗</a>`;if(hasCoordinates(p))map?.panTo([p.lat,p.lng]);}
