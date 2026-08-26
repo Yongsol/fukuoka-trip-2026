@@ -1,13 +1,13 @@
 {
-  "name": "후쿠오카, 우리의 주말",
+  "name": "후쿠오카, 우리 셋의 첫 여행",
   "short_name": "후쿠오카 여행",
-  "description": "2026년 후쿠오카 2박 3일 오프라인 여행 플래너",
+  "description": "비버를 만나러 떠나는 2026년 후쿠오카 태교여행 플래너",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f7f3ed",
-  "theme_color": "#ef695c",
+  "background_color": "#f8f5ed",
+  "theme_color": "#477c70",
   "categories": ["travel", "lifestyle"],
   "icons": [
     {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},

@@ -1,10 +1,10 @@
 const CACHE_PREFIX='fukuoka-trip-2026-';
-const CACHE='fukuoka-trip-2026-v15';
+const CACHE='fukuoka-trip-2026-v17';
 const LEGACY_CACHES=new Set(['fukuoka-planner-v3']);
 const SHELL=[
-  './','./index.html','./styles.css?v=15','./src/app.js?v=15','./src/data.js','./src/restaurant-data.js','./src/social-food-data.js','./src/planner.js',
+  './','./index.html','./styles.css?v=17','./src/app.js?v=17','./src/data.js','./src/restaurant-data.js','./src/social-food-data.js','./src/planner.js',
   './src/security.js','./src/storage.js','./src/motion.js','./src/routes.js','./manifest.webmanifest','./icons/icon.svg',
-  './icons/icon-192.png','./icons/icon-512.png',
+  './icons/icon-192.png','./icons/icon-512.png','./assets/theme/beaver-baby-hero.svg',
   './vendor/leaflet/leaflet.css','./vendor/leaflet/leaflet.js',
   './vendor/leaflet/images/marker-icon.png','./vendor/leaflet/images/marker-icon-2x.png',
   './vendor/leaflet/images/marker-shadow.png','./vendor/leaflet/images/layers.png',

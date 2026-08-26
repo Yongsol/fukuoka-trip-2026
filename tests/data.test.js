@@ -29,7 +29,7 @@ test('numbered restaurant guide has 25 complete entries with contiguous map numb
   assert.equal(restaurantGuide.find(place=>place.number===12).menus[0].price,'1,790엔');
   assert.equal(restaurantGuide.find(place=>place.number===25).menus[0].price,'3,150엔');
   assert.match(restaurantGuide.find(place=>place.number===9).menus[0].priceNote,/방문 직전/);
-  assert.match(restaurantGuide.find(place=>place.number===10).menus[0].priceNote,/현장 메뉴판 재확인/);
+  assert.match(restaurantGuide.find(place=>place.number===10).menus[0].priceNote,/단일 식당이 아닌 포장마차 구역/);
 });
 
 test('restaurant guide assets, numbered map markup, and offline cache are wired', async () => {
@@ -41,8 +41,14 @@ test('restaurant guide assets, numbered map markup, and offline cache are wired'
     readFile(new URL('../sw.js',import.meta.url),'utf8'),
   ]);
   assert.match(html,/id="food-map"/);
-  assert.match(html,/맛집 25곳의 번호 위치 지도/);
+  assert.match(html,/맛집 번호 위치 지도/);
+  assert.match(html,/첨부 맛집 1–11/);
+  assert.match(html,/전체 맛집 1–25/);
+  assert.match(html,/beaver-baby-hero\.svg/);
   assert.match(app,/L\.divIcon\(\{className:'food-number-icon'/);
+  assert.match(app,/foodScope==='attached'/);
+  assert.match(app,/visualOffsets=new Map/);
+  assert.match(app,/첨부 맛집 11곳의 번호 위치 지도/);
   assert.match(app,/focusRestaurant\(place\.id,\{scroll:true\}\)/);
   assert.match(css,/#food-map\{height:clamp/);
   for(const place of restaurantGuide) assert.ok(worker.includes(`./${place.image}`),place.image);

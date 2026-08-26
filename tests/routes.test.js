@@ -210,9 +210,9 @@ test('overview styling keeps the route map and date controls mobile friendly', a
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.transport-marker/);
 });
 
-test('offline shell includes routes module in cache v15', async () => {
+test('offline shell includes routes module in cache v17', async () => {
   const worker=await readFile(new URL('../sw.js',import.meta.url),'utf8');
-  assert.match(worker, /fukuoka-trip-2026-v15/);
+  assert.match(worker,/fukuoka-trip-2026-v17/);
   assert.match(worker, /\.\/src\/routes\.js/);
 });
 
