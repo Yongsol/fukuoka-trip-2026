@@ -48,14 +48,13 @@ test('service worker activation deletes only this app cache generations', async 
   assert.deepEqual(deleted.sort(), ['fukuoka-planner-v3', 'fukuoka-trip-2026-v10', 'fukuoka-trip-2026-v2', 'fukuoka-trip-2026-v4', 'fukuoka-trip-2026-v5', 'fukuoka-trip-2026-v6', 'fukuoka-trip-2026-v7', 'fukuoka-trip-2026-v8', 'fukuoka-trip-2026-v9']);
 });
 
-test('service worker v21 caches versioned restaurant data, SNS data, theme art, local captures, and replacement photos', async () => {
+test('service worker v22 caches only the 11-place Tenjin restaurant guide and current modules', async () => {
   const worker=await readFile(new URL('../sw.js',import.meta.url),'utf8');
-  assert.match(worker,/fukuoka-trip-2026-v21/);
-  for(const module of ['data','restaurant-data','social-food-data']) assert.ok(worker.includes(`./src/${module}.js?v=20`),module);
+  assert.match(worker,/fukuoka-trip-2026-v22/);
+  for(const module of ['data','restaurant-data']) assert.ok(worker.includes(`./src/${module}.js?v=22`),module);
+  assert.ok(worker.includes('./src/app.js?v=22'));
+  assert.ok(worker.includes('./styles.css?v=22'));
   assert.match(worker,/assets\/theme\/beaver-baby-hero\.svg/);
-  assert.match(worker,/\.\/src\/social-food-data\.js/);
-  for(let number=1;number<=21;number+=1){
-    assert.match(worker,new RegExp(`\\./assets/social-food/${String(number).padStart(2,'0')}-[^']+\\.webp`),`SNS capture ${number}`);
-  }
-  for(const file of ['02-unafuji-daimyo.webp','08-fukutaro-tenjin-terra.webp','09-shinmiura-tenjin.webp','10-mamichan-yatai.webp','15-fruit-parlor-notoki.webp','18-quil-fait-bon-fukuoka.webp','24-kamakiri-udon.webp']) assert.ok(worker.includes(`./assets/restaurants/${file}`),file);
+  assert.doesNotMatch(worker,/social-food-data|assets\/social-food|shinshin-deitos|shoboan|hamadaya|nakasu-yatai/);
+  for(const file of ['01-shinshin-tenjin.webp','02-unafuji-daimyo.webp','03-kanetora.webp','04-ichifuji.webp','05-rakutenti.webp','06-ooyama.webp','07-mentaiju.webp','08-fukutaro-tenjin-terra.webp','09-shinmiura-tenjin.webp','10-mamichan-yatai.webp','11-pyonkichi.webp']) assert.ok(worker.includes(`./assets/restaurants/${file}`),file);
 });
