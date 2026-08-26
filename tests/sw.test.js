@@ -48,9 +48,9 @@ test('service worker activation deletes only this app cache generations', async 
   assert.deepEqual(deleted.sort(), ['fukuoka-planner-v3', 'fukuoka-trip-2026-v10', 'fukuoka-trip-2026-v2', 'fukuoka-trip-2026-v4', 'fukuoka-trip-2026-v5', 'fukuoka-trip-2026-v6', 'fukuoka-trip-2026-v7', 'fukuoka-trip-2026-v8', 'fukuoka-trip-2026-v9']);
 });
 
-test('service worker v18 caches SNS data, theme art, local captures, and replacement photos', async () => {
+test('service worker v19 caches SNS data, theme art, local captures, and replacement photos', async () => {
   const worker=await readFile(new URL('../sw.js',import.meta.url),'utf8');
-  assert.match(worker,/fukuoka-trip-2026-v18/);
+  assert.match(worker,/fukuoka-trip-2026-v19/);
   assert.match(worker,/assets\/theme\/beaver-baby-hero\.svg/);
   assert.match(worker,/\.\/src\/social-food-data\.js/);
   for(let number=1;number<=21;number+=1){
