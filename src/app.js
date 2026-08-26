@@ -1,5 +1,5 @@
-import { events, places, restaurantGuide, defaultChecklist, dateLabels, transportGuides, officialLinks } from './data.js';
-import { socialFoodCandidates } from './social-food-data.js';
+import { events, places, restaurantGuide, defaultChecklist, dateLabels, transportGuides, officialLinks } from './data.js?v=20';
+import { socialFoodCandidates } from './social-food-data.js?v=20';
 import { eventsForDate, toggleChecklist, toggleEvent, addCustomEvent, deleteCustomEvent, categoryFilter, createBackup, restoreBackup, createICS, googleMapsUrl, downloadText, departureReminderDecision } from './planner.js';
 import { addAttachment, listAttachments, getAttachment, deleteAttachment } from './storage.js';
 import { safeTooltipContent } from './security.js';
