@@ -1,14 +1,20 @@
 const CACHE_PREFIX='fukuoka-trip-2026-';
-const CACHE='fukuoka-trip-2026-v12';
+const CACHE='fukuoka-trip-2026-v13';
 const LEGACY_CACHES=new Set(['fukuoka-planner-v3']);
 const SHELL=[
-  './','./index.html','./styles.css?v=12','./src/app.js?v=12','./src/data.js','./src/planner.js',
+  './','./index.html','./styles.css?v=13','./src/app.js?v=13','./src/data.js','./src/restaurant-data.js','./src/planner.js',
   './src/security.js','./src/storage.js','./src/motion.js','./src/routes.js','./manifest.webmanifest','./icons/icon.svg',
   './icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet/leaflet.css','./vendor/leaflet/leaflet.js',
   './vendor/leaflet/images/marker-icon.png','./vendor/leaflet/images/marker-icon-2x.png',
   './vendor/leaflet/images/marker-shadow.png','./vendor/leaflet/images/layers.png',
-  './vendor/leaflet/images/layers-2x.png'
+  './vendor/leaflet/images/layers-2x.png',
+  './assets/restaurants/01-shinshin-tenjin.webp','./assets/restaurants/02-shinshin-deitos.webp',
+  './assets/restaurants/03-kanetora.webp','./assets/restaurants/04-ichifuji.webp',
+  './assets/restaurants/05-rakutenti.webp','./assets/restaurants/06-ooyama.webp',
+  './assets/restaurants/07-mentaiju.webp','./assets/restaurants/08-shoboan.webp',
+  './assets/restaurants/09-hamadaya.webp','./assets/restaurants/10-nakasu-yatai.webp',
+  './assets/restaurants/11-pyonkichi.webp'
 ];
 const SHELL_URLS=new Set(SHELL.map(path=>new URL(path,self.registration.scope).href));
 const INDEX_URL=new URL('./index.html',self.registration.scope).href;

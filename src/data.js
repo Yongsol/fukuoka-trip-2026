@@ -1,3 +1,5 @@
+export { restaurantGuide } from './restaurant-data.js';
+
 export const trip={title:'후쿠오카 2박 3일',dates:'2026. 8. 28 — 8. 30',hotelArea:'Nishitetsu Grand Hotel',timezone:'Asia/Tokyo'};
 
 export const events=[

@@ -1,9 +1,49 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { trip, events, places, defaultChecklist, transportGuides, officialLinks } from '../src/data.js';
+import { access, readFile } from 'node:fs/promises';
+import { trip, events, places, restaurantGuide, defaultChecklist, transportGuides, officialLinks } from '../src/data.js';
 
 const byEventId=id=>events.find(event=>event.id===id);
 const byPlaceId=id=>places.find(place=>place.id===id);
+
+test('numbered restaurant guide has 11 complete, source-backed local entries', () => {
+  assert.equal(restaurantGuide.length,11);
+  assert.deepEqual(restaurantGuide.map(place=>place.number),[1,2,3,4,5,6,7,8,9,10,11]);
+  assert.equal(new Set(restaurantGuide.map(place=>place.id)).size,11);
+  assert.equal(new Set(restaurantGuide.map(place=>place.number)).size,11);
+  for(const place of restaurantGuide){
+    assert.ok(Number.isFinite(place.lat),`${place.id}.lat`);
+    assert.ok(Number.isFinite(place.lng),`${place.id}.lng`);
+    assert.match(place.image,new RegExp(`^assets/restaurants/${String(place.number).padStart(2,'0')}-.*\\.webp$`),place.id);
+    assert.ok(place.imageAlt,`${place.id}.imageAlt`);
+    assert.match(place.imageSource,/^https:\/\//,`${place.id}.imageSource`);
+    assert.match(place.officialUrl,/^https:\/\//,`${place.id}.officialUrl`);
+    assert.ok(place.menuUrl||place.sourceUrl,`${place.id}.menu/source`);
+    assert.ok(place.mapQuery,`${place.id}.mapQuery`);
+    assert.ok(place.address,`${place.id}.address`);
+    assert.ok(place.menus.length>0,`${place.id}.menus`);
+    assert.ok(place.menus.every(menu=>menu.name&&menu.price&&menu.priceNote),`${place.id}.representative prices`);
+  }
+  assert.equal(restaurantGuide.find(place=>place.number===4).menus[0].price,'5,000엔');
+  assert.match(restaurantGuide.find(place=>place.number===9).menus[0].priceNote,/방문 직전/);
+  assert.match(restaurantGuide.find(place=>place.number===10).menus[0].priceNote,/현장 메뉴판 재확인/);
+});
+
+test('restaurant guide assets, numbered map markup, and offline cache are wired', async () => {
+  await Promise.all(restaurantGuide.map(place=>access(new URL(`../${place.image}`,import.meta.url))));
+  const [html,app,css,worker]=await Promise.all([
+    readFile(new URL('../index.html',import.meta.url),'utf8'),
+    readFile(new URL('../src/app.js',import.meta.url),'utf8'),
+    readFile(new URL('../styles.css',import.meta.url),'utf8'),
+    readFile(new URL('../sw.js',import.meta.url),'utf8'),
+  ]);
+  assert.match(html,/id="food-map"/);
+  assert.match(html,/맛집 11곳의 번호 위치 지도/);
+  assert.match(app,/L\.divIcon\(\{className:'food-number-icon'/);
+  assert.match(app,/focusRestaurant\(place\.id,\{scroll:true\}\)/);
+  assert.match(css,/#food-map\{height:clamp/);
+  for(const place of restaurantGuide) assert.ok(worker.includes(`./${place.image}`),place.image);
+});
 
 test('canonical trip keeps all food candidates and valid UI shapes', () => {
   const foodIds=new Set(places.filter(place=>place.category==='food').map(place=>place.id));
