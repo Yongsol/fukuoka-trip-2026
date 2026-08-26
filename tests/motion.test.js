@@ -94,6 +94,6 @@ test('planner markup exposes the animated tab indicator and decorative route', a
 
 test('offline shell includes the motion module in a fresh cache generation', async () => {
   const worker = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
-  assert.match(worker, /fukuoka-trip-2026-v14/);
+  assert.match(worker, /fukuoka-trip-2026-v15/);
   assert.match(worker, /\.\/src\/motion\.js/);
 });

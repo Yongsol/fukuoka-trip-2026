@@ -48,9 +48,9 @@ test('service worker activation deletes only this app cache generations', async 
   assert.deepEqual(deleted.sort(), ['fukuoka-planner-v3', 'fukuoka-trip-2026-v10', 'fukuoka-trip-2026-v2', 'fukuoka-trip-2026-v4', 'fukuoka-trip-2026-v5', 'fukuoka-trip-2026-v6', 'fukuoka-trip-2026-v7', 'fukuoka-trip-2026-v8', 'fukuoka-trip-2026-v9']);
 });
 
-test('service worker v14 caches SNS data and all 21 local captures', async () => {
+test('service worker v15 caches SNS data and all 21 local captures', async () => {
   const worker=await readFile(new URL('../sw.js',import.meta.url),'utf8');
-  assert.match(worker,/fukuoka-trip-2026-v14/);
+  assert.match(worker,/fukuoka-trip-2026-v15/);
   assert.match(worker,/\.\/src\/social-food-data\.js/);
   for(let number=1;number<=21;number+=1){
     assert.match(worker,new RegExp(`\\./assets/social-food/${String(number).padStart(2,'0')}-[^']+\\.webp`),`SNS capture ${number}`);

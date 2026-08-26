@@ -7,15 +7,15 @@ import { socialFoodCandidates } from '../src/social-food-data.js';
 const byEventId=id=>events.find(event=>event.id===id);
 const byPlaceId=id=>places.find(place=>place.id===id);
 
-test('numbered restaurant guide has 11 complete, source-backed local entries', () => {
-  assert.equal(restaurantGuide.length,11);
-  assert.deepEqual(restaurantGuide.map(place=>place.number),[1,2,3,4,5,6,7,8,9,10,11]);
-  assert.equal(new Set(restaurantGuide.map(place=>place.id)).size,11);
-  assert.equal(new Set(restaurantGuide.map(place=>place.number)).size,11);
+test('numbered restaurant guide has 25 complete entries with contiguous map numbers', () => {
+  assert.equal(restaurantGuide.length,25);
+  assert.deepEqual(restaurantGuide.map(place=>place.number),Array.from({length:25},(_,index)=>index+1));
+  assert.equal(new Set(restaurantGuide.map(place=>place.id)).size,25);
+  assert.equal(new Set(restaurantGuide.map(place=>place.number)).size,25);
   for(const place of restaurantGuide){
     assert.ok(Number.isFinite(place.lat),`${place.id}.lat`);
     assert.ok(Number.isFinite(place.lng),`${place.id}.lng`);
-    assert.match(place.image,new RegExp(`^assets/restaurants/${String(place.number).padStart(2,'0')}-.*\\.webp$`),place.id);
+    assert.match(place.image,/^assets\/(restaurants|social-food)\/\d{2}-.*\.webp$/,place.id);
     assert.ok(place.imageAlt,`${place.id}.imageAlt`);
     assert.match(place.imageSource,/^https:\/\//,`${place.id}.imageSource`);
     assert.match(place.officialUrl,/^https:\/\//,`${place.id}.officialUrl`);
@@ -26,6 +26,8 @@ test('numbered restaurant guide has 11 complete, source-backed local entries', (
     assert.ok(place.menus.every(menu=>menu.name&&menu.price&&menu.priceNote),`${place.id}.representative prices`);
   }
   assert.equal(restaurantGuide.find(place=>place.number===4).menus[0].price,'5,000엔');
+  assert.equal(restaurantGuide.find(place=>place.number===12).menus[0].price,'1,790엔');
+  assert.equal(restaurantGuide.find(place=>place.number===25).menus[0].price,'3,150엔');
   assert.match(restaurantGuide.find(place=>place.number===9).menus[0].priceNote,/방문 직전/);
   assert.match(restaurantGuide.find(place=>place.number===10).menus[0].priceNote,/현장 메뉴판 재확인/);
 });
@@ -39,7 +41,7 @@ test('restaurant guide assets, numbered map markup, and offline cache are wired'
     readFile(new URL('../sw.js',import.meta.url),'utf8'),
   ]);
   assert.match(html,/id="food-map"/);
-  assert.match(html,/맛집 11곳의 번호 위치 지도/);
+  assert.match(html,/맛집 25곳의 번호 위치 지도/);
   assert.match(app,/L\.divIcon\(\{className:'food-number-icon'/);
   assert.match(app,/focusRestaurant\(place\.id,\{scroll:true\}\)/);
   assert.match(css,/#food-map\{height:clamp/);
@@ -59,17 +61,15 @@ test('SNS food candidates keep all 21 supplied captures with complete unique rec
   }
 });
 
-test('SNS food candidate verification and numbered-card mappings are explicit', () => {
-  assert.deepEqual(socialFoodCandidates.filter(candidate=>!candidate.verified).map(candidate=>candidate.id),['sns-food-01','sns-food-03','sns-food-04','sns-food-07','sns-food-15']);
-  const mappings=Object.fromEntries(socialFoodCandidates.filter(candidate=>candidate.existingRestaurantId).map(candidate=>[candidate.id,candidate.existingRestaurantId]));
-  assert.deepEqual(mappings,{
-    'sns-food-10':'ooyama-honten',
-    'sns-food-11':'kanetora-deitos',
-    'sns-food-12':'kanetora-deitos',
-    'sns-food-13':'shinshin-tenjin',
-    'sns-food-16':'mentaiju-nishinakasu',
-    'sns-food-21':'rakutenti-hakata-ekimae',
-  });
+test('all 21 SNS captures are verified and mapped to a numbered restaurant card', () => {
+  assert.deepEqual(socialFoodCandidates.filter(candidate=>!candidate.verified),[]);
+  const restaurantIds=new Set(restaurantGuide.map(place=>place.id));
+  assert.ok(socialFoodCandidates.every(candidate=>restaurantIds.has(candidate.existingRestaurantId)));
+  assert.equal(new Set(socialFoodCandidates.map(candidate=>candidate.existingRestaurantId)).size,19);
+  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-04').existingRestaurantId,'fruitgarden-shinsun-hakata');
+  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-08').existingRestaurantId,'fruitgarden-shinsun-hakata');
+  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-11').existingRestaurantId,'kanetora-deitos');
+  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-12').existingRestaurantId,'kanetora-deitos');
 });
 
 test('canonical trip keeps all food candidates and valid UI shapes', () => {
