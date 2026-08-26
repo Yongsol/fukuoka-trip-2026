@@ -1,8 +1,8 @@
 const CACHE_PREFIX='fukuoka-trip-2026-';
-const CACHE='fukuoka-trip-2026-v13';
+const CACHE='fukuoka-trip-2026-v14';
 const LEGACY_CACHES=new Set(['fukuoka-planner-v3']);
 const SHELL=[
-  './','./index.html','./styles.css?v=13','./src/app.js?v=13','./src/data.js','./src/restaurant-data.js','./src/planner.js',
+  './','./index.html','./styles.css?v=14','./src/app.js?v=14','./src/data.js','./src/restaurant-data.js','./src/social-food-data.js','./src/planner.js',
   './src/security.js','./src/storage.js','./src/motion.js','./src/routes.js','./manifest.webmanifest','./icons/icon.svg',
   './icons/icon-192.png','./icons/icon-512.png',
   './vendor/leaflet/leaflet.css','./vendor/leaflet/leaflet.js',
@@ -14,7 +14,18 @@ const SHELL=[
   './assets/restaurants/05-rakutenti.webp','./assets/restaurants/06-ooyama.webp',
   './assets/restaurants/07-mentaiju.webp','./assets/restaurants/08-shoboan.webp',
   './assets/restaurants/09-hamadaya.webp','./assets/restaurants/10-nakasu-yatai.webp',
-  './assets/restaurants/11-pyonkichi.webp'
+  './assets/restaurants/11-pyonkichi.webp',
+  './assets/social-food/01-kaisendon-candidate.webp','./assets/social-food/02-ichiran-honten.webp',
+  './assets/social-food/03-toriboshi-daimyo.webp','./assets/social-food/04-fruit-sando-hakata.webp',
+  './assets/social-food/05-yakiniku-sudo.webp','./assets/social-food/06-ooshige-shokudo.webp',
+  './assets/social-food/07-imonne-hakata.webp','./assets/social-food/08-fruit-garden-shinsun.webp',
+  './assets/social-food/09-sashisu.webp','./assets/social-food/10-motsunabe-ooyama.webp',
+  './assets/social-food/11-kanetora-first.webp','./assets/social-food/12-kanetora-second.webp',
+  './assets/social-food/13-shinshin.webp','./assets/social-food/14-hyotan-sushi.webp',
+  './assets/social-food/15-musashi-iroriyaki.webp','./assets/social-food/16-mentaiju.webp',
+  './assets/social-food/17-kisuimaru.webp','./assets/social-food/18-cafe-del-sol.webp',
+  './assets/social-food/19-daichi-no-udon.webp','./assets/social-food/20-sabatarou.webp',
+  './assets/social-food/21-rakutenti.webp'
 ];
 const SHELL_URLS=new Set(SHELL.map(path=>new URL(path,self.registration.scope).href));
 const INDEX_URL=new URL('./index.html',self.registration.scope).href;

@@ -1,0 +1,25 @@
+// 사용자가 제공한 SNS 캡처에서 판독한 별도 맛집 후보입니다.
+// verified는 캡처 속 상호를 특정했는지 여부이며 영업·지점·메뉴의 최신 검증을 뜻하지 않습니다.
+export const socialFoodCandidates=[
+  {id:'sns-food-01',title:'카이센동 후보',subtitle:'사진 속 해산물 덮밥 · 상호와 정확한 지점 미확인',image:'assets/social-food/01-kaisendon-candidate.webp',mapQuery:'후쿠오카 카이센동',verified:false},
+  {id:'sns-food-02',title:'이치란 라멘 본사총본점',subtitle:'캡처에서 이치란 라멘 본사총본점으로 판독',image:'assets/social-food/02-ichiran-honten.webp',mapQuery:'一蘭 本社総本店 福岡',verified:true},
+  {id:'sns-food-03',title:'토리보시 다이묘',subtitle:'사진에 토리보시 다이묘로 표기 · 정확한 상호와 지점 확인 필요',image:'assets/social-food/03-toriboshi-daimyo.webp',mapQuery:'トリボシ 大名 福岡',verified:false},
+  {id:'sns-food-04',title:'하카타역 후르츠산도 후보',subtitle:'사진 속 후르츠산도 · 상호와 정확한 지점 미확인',image:'assets/social-food/04-fruit-sando-hakata.webp',mapQuery:'博多駅 フルーツサンド',verified:false},
+  {id:'sns-food-05',title:'야키니쿠 스도 하루요시',subtitle:'캡처에서 야키니쿠 스도 하루요시로 판독',image:'assets/social-food/05-yakiniku-sudo.webp',mapQuery:'焼肉すどう 春吉',verified:true},
+  {id:'sns-food-06',title:'오오시게 쇼쿠도 이마이즈미점',subtitle:'大重食堂 今泉店 · 캡처 속 상호 판독',image:'assets/social-food/06-ooshige-shokudo.webp',mapQuery:'大重食堂 今泉店',verified:true},
+  {id:'sns-food-07',title:'이몬네 하카타점',subtitle:'사진에 이몬네 하카타점으로 표기 · 정확한 상호와 지점 확인 필요',image:'assets/social-food/07-imonne-hakata.webp',mapQuery:'イモンネ 博多店',verified:false},
+  {id:'sns-food-08',title:'후르츠 가든 신SUN',subtitle:'フルーツガーデン新SUN · 캡처 속 상호 판독',image:'assets/social-food/08-fruit-garden-shinsun.webp',mapQuery:'フルーツガーデン新SUN 福岡',verified:true},
+  {id:'sns-food-09',title:'스시사카바 사시스',subtitle:'寿司酒場さしす · Google Maps에서 하카타 지점 검색',image:'assets/social-food/09-sashisu.webp',mapQuery:'寿司酒場さしす KITTE博多店',verified:true},
+  {id:'sns-food-10',title:'모츠나베 오오야마',subtitle:'캡처 속 상호 판독 · 기존 번호 카드와 중복',image:'assets/social-food/10-motsunabe-ooyama.webp',mapQuery:'博多もつ鍋 おおやま本店',verified:true,existingRestaurantId:'ooyama-honten'},
+  {id:'sns-food-11',title:'멘야 카네토라',subtitle:'첫 번째 저장 사진 · 기존 번호 카드와 중복',image:'assets/social-food/11-kanetora-first.webp',mapQuery:'麺や兼虎 博多デイトス店',verified:true,existingRestaurantId:'kanetora-deitos'},
+  {id:'sns-food-12',title:'멘야 카네토라',subtitle:'같은 가게의 두 번째 저장 사진 · 기존 번호 카드와 중복',image:'assets/social-food/12-kanetora-second.webp',mapQuery:'麺や兼虎 博多デイトス店',verified:true,existingRestaurantId:'kanetora-deitos'},
+  {id:'sns-food-13',title:'신신라멘',subtitle:'캡처 속 상호 판독 · 텐진 본점 기준 검색 · 기존 #1/#2 후보',image:'assets/social-food/13-shinshin.webp',mapQuery:'博多純情らーめん ShinShin 天神本店',verified:true,existingRestaurantId:'shinshin-tenjin',existingRestaurantNumbers:[1,2]},
+  {id:'sns-food-14',title:'효탄스시',subtitle:'ひょうたん寿司 · 캡처 속 상호 판독',image:'assets/social-food/14-hyotan-sushi.webp',mapQuery:'ひょうたん寿司 福岡',verified:true},
+  {id:'sns-food-15',title:'무사시 이로리야키',subtitle:'사진에 무사시 이로리야키로 표기 · 정확한 상호와 지점 확인 필요',image:'assets/social-food/15-musashi-iroriyaki.webp',mapQuery:'武蔵 いろり焼き 福岡',verified:false},
+  {id:'sns-food-16',title:'멘타이쥬',subtitle:'캡처 속 상호 판독 · 기존 번호 카드와 중복',image:'assets/social-food/16-mentaiju.webp',mapQuery:'元祖博多めんたい重 西中洲',verified:true,existingRestaurantId:'mentaiju-nishinakasu'},
+  {id:'sns-food-17',title:'키스이마루',subtitle:'喜水丸 · 캡처 속 상호 판독',image:'assets/social-food/17-kisuimaru.webp',mapQuery:'喜水丸 福岡',verified:true},
+  {id:'sns-food-18',title:'Cafe del SOL 후쿠오카',subtitle:'캡처에서 Cafe del SOL로 판독',image:'assets/social-food/18-cafe-del-sol.webp',mapQuery:'Cafe del SOL 福岡',verified:true},
+  {id:'sns-food-19',title:'다이치노우동',subtitle:'大地のうどん · 캡처 속 상호 판독',image:'assets/social-food/19-daichi-no-udon.webp',mapQuery:'大地のうどん 福岡',verified:true},
+  {id:'sns-food-20',title:'사바타로',subtitle:'サバタロウ · 캡처 속 상호 판독',image:'assets/social-food/20-sabatarou.webp',mapQuery:'サバタロウ 福岡',verified:true},
+  {id:'sns-food-21',title:'모츠나베 라쿠텐치',subtitle:'캡처 속 상호 판독 · 기존 번호 카드와 중복',image:'assets/social-food/21-rakutenti.webp',mapQuery:'博多もつ鍋 楽天地 博多駅前店',verified:true,existingRestaurantId:'rakutenti-hakata-ekimae'},
+];

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import { trip, events, places, restaurantGuide, defaultChecklist, transportGuides, officialLinks } from '../src/data.js';
+import { socialFoodCandidates } from '../src/social-food-data.js';
 
 const byEventId=id=>events.find(event=>event.id===id);
 const byPlaceId=id=>places.find(place=>place.id===id);
@@ -43,6 +44,32 @@ test('restaurant guide assets, numbered map markup, and offline cache are wired'
   assert.match(app,/focusRestaurant\(place\.id,\{scroll:true\}\)/);
   assert.match(css,/#food-map\{height:clamp/);
   for(const place of restaurantGuide) assert.ok(worker.includes(`./${place.image}`),place.image);
+});
+
+test('SNS food candidates keep all 21 supplied captures with complete unique records', async () => {
+  assert.equal(socialFoodCandidates.length,21);
+  assert.equal(new Set(socialFoodCandidates.map(candidate=>candidate.id)).size,21);
+  for(const candidate of socialFoodCandidates){
+    assert.ok(candidate.title,`${candidate.id}.title`);
+    assert.ok(candidate.subtitle,`${candidate.id}.subtitle`);
+    assert.match(candidate.image,/^assets\/social-food\/\d{2}-.*\.webp$/,`${candidate.id}.image`);
+    assert.ok(candidate.mapQuery,`${candidate.id}.mapQuery`);
+    assert.equal(typeof candidate.verified,'boolean',`${candidate.id}.verified`);
+    await access(new URL(`../${candidate.image}`,import.meta.url));
+  }
+});
+
+test('SNS food candidate verification and numbered-card mappings are explicit', () => {
+  assert.deepEqual(socialFoodCandidates.filter(candidate=>!candidate.verified).map(candidate=>candidate.id),['sns-food-01','sns-food-03','sns-food-04','sns-food-07','sns-food-15']);
+  const mappings=Object.fromEntries(socialFoodCandidates.filter(candidate=>candidate.existingRestaurantId).map(candidate=>[candidate.id,candidate.existingRestaurantId]));
+  assert.deepEqual(mappings,{
+    'sns-food-10':'ooyama-honten',
+    'sns-food-11':'kanetora-deitos',
+    'sns-food-12':'kanetora-deitos',
+    'sns-food-13':'shinshin-tenjin',
+    'sns-food-16':'mentaiju-nishinakasu',
+    'sns-food-21':'rakutenti-hakata-ekimae',
+  });
 });
 
 test('canonical trip keeps all food candidates and valid UI shapes', () => {
