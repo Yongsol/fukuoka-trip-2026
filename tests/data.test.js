@@ -1,17 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { trip, events, places, restaurantGuide, defaultChecklist, transportGuides, officialLinks } from '../src/data.js';
 import { socialFoodCandidates } from '../src/social-food-data.js';
 
 const byEventId=id=>events.find(event=>event.id===id);
 const byPlaceId=id=>places.find(place=>place.id===id);
+const execFileAsync=promisify(execFile);
 
-test('numbered restaurant guide has 25 complete entries with contiguous map numbers', () => {
-  assert.equal(restaurantGuide.length,25);
-  assert.deepEqual(restaurantGuide.map(place=>place.number),Array.from({length:25},(_,index)=>index+1));
-  assert.equal(new Set(restaurantGuide.map(place=>place.id)).size,25);
-  assert.equal(new Set(restaurantGuide.map(place=>place.number)).size,25);
+test('numbered restaurant guide has 33 complete entries with contiguous map numbers', () => {
+  assert.equal(restaurantGuide.length,33);
+  assert.deepEqual(restaurantGuide.map(place=>place.number),Array.from({length:33},(_,index)=>index+1));
+  assert.equal(new Set(restaurantGuide.map(place=>place.id)).size,33);
+  assert.equal(new Set(restaurantGuide.map(place=>place.number)).size,33);
   for(const place of restaurantGuide){
     assert.ok(Number.isFinite(place.lat),`${place.id}.lat`);
     assert.ok(Number.isFinite(place.lng),`${place.id}.lng`);
@@ -24,12 +27,21 @@ test('numbered restaurant guide has 25 complete entries with contiguous map numb
     assert.ok(place.address,`${place.id}.address`);
     assert.ok(place.menus.length>0,`${place.id}.menus`);
     assert.ok(place.menus.every(menu=>menu.name&&menu.price&&menu.priceNote),`${place.id}.representative prices`);
+    assert.match(place.hotelAccess,/니시테츠 그랜드 호텔에서 (도보|지하철|버스|택시) 약/,`${place.id}.hotelAccess`);
   }
-  assert.equal(restaurantGuide.find(place=>place.number===4).menus[0].price,'5,000엔');
+  const expectedIds={1:'shinshin-tenjin',2:'shinshin-deitos',3:'kanetora-deitos',4:'ichifuji-hakata',5:'rakutenti-hakata-ekimae',6:'ooyama-honten',7:'mentaiju-nishinakasu',8:'shoboan',9:'hamadaya-honten',10:'nakasu-yatai',11:'pyonkichi',15:'fruit-parlor-notoki',18:'quil-fait-bon-fukuoka',19:'sashisu-tenjin',22:'kisuimaru-tenjin',24:'kamakiri-udon',26:'unafuji-daimyo',27:'kanetora-tenjin-nishidori',28:'ichifuji-imaizumi',29:'rakutenti-tenjin-nishidori',30:'ooyama-fukuoka-parco',31:'fukutaro-tenjin-terra',32:'shinmiura-tenjin',33:'mamichan-yatai'};
+  for(const [number,id] of Object.entries(expectedIds)) assert.equal(restaurantGuide.find(place=>place.number===Number(number)).id,id);
+  assert.equal(restaurantGuide.find(place=>place.number===4).menus[0].price,'1,958엔');
   assert.equal(restaurantGuide.find(place=>place.number===12).menus[0].price,'1,790엔');
   assert.equal(restaurantGuide.find(place=>place.number===25).menus[0].price,'3,150엔');
-  assert.match(restaurantGuide.find(place=>place.number===9).menus[0].priceNote,/방문 직전/);
+  assert.match(restaurantGuide.find(place=>place.number===8).menus[0].priceNote,/가격 미표기/);
   assert.match(restaurantGuide.find(place=>place.number===10).menus[0].priceNote,/단일 식당이 아닌 포장마차 구역/);
+  assert.match(restaurantGuide.find(place=>place.number===11).menus[0].priceNote,/2025-05/);
+});
+
+test('restaurant WebP files are decodable when ImageMagick is available', async t => {
+  try{await execFileAsync('identify',['-version']);}catch{t.skip('ImageMagick identify not installed');return;}
+  for(const place of restaurantGuide) await execFileAsync('identify',[new URL(`../${place.image}`,import.meta.url).pathname]);
 });
 
 test('restaurant guide assets, numbered map markup, and offline cache are wired', async () => {
@@ -41,9 +53,9 @@ test('restaurant guide assets, numbered map markup, and offline cache are wired'
     readFile(new URL('../sw.js',import.meta.url),'utf8'),
   ]);
   assert.match(html,/id="food-map"/);
-  assert.match(html,/맛집 번호 위치 지도/);
+  assert.match(html,/맛집 번호 지도/);
   assert.match(html,/첨부 맛집 1–11/);
-  assert.match(html,/전체 맛집 1–25/);
+  assert.match(html,/전체 맛집 1–33/);
   assert.match(html,/beaver-baby-hero\.svg/);
   assert.match(app,/L\.divIcon\(\{className:'food-number-icon'/);
   assert.match(app,/foodScope==='attached'/);
@@ -63,19 +75,20 @@ test('SNS food candidates keep all 21 supplied captures with complete unique rec
     assert.match(candidate.image,/^assets\/social-food\/\d{2}-.*\.webp$/,`${candidate.id}.image`);
     assert.ok(candidate.mapQuery,`${candidate.id}.mapQuery`);
     assert.equal(typeof candidate.verified,'boolean',`${candidate.id}.verified`);
+    assert.equal(typeof candidate.exactBranchMatch,'boolean',`${candidate.id}.exactBranchMatch`);
     await access(new URL(`../${candidate.image}`,import.meta.url));
   }
 });
 
-test('all 21 SNS captures are verified and mapped to a numbered restaurant card', () => {
+test('all 21 SNS captures retain evidence status and branch distinctions', () => {
   assert.deepEqual(socialFoodCandidates.filter(candidate=>!candidate.verified),[]);
   const restaurantIds=new Set(restaurantGuide.map(place=>place.id));
-  assert.ok(socialFoodCandidates.every(candidate=>restaurantIds.has(candidate.existingRestaurantId)));
-  assert.equal(new Set(socialFoodCandidates.map(candidate=>candidate.existingRestaurantId)).size,19);
-  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-04').existingRestaurantId,'fruitgarden-shinsun-hakata');
-  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-08').existingRestaurantId,'fruitgarden-shinsun-hakata');
-  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-11').existingRestaurantId,'kanetora-deitos');
-  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-12').existingRestaurantId,'kanetora-deitos');
+  assert.ok(socialFoodCandidates.every(candidate=>!candidate.existingRestaurantId||restaurantIds.has(candidate.existingRestaurantId)));
+  for(const id of ['sns-food-10','sns-food-11','sns-food-12','sns-food-17','sns-food-21']) assert.equal(socialFoodCandidates.find(candidate=>candidate.id===id).exactBranchMatch,false,id);
+  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-11').existingRestaurantId,'kanetora-tenjin-nishidori');
+  assert.match(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-11').subtitle,/저장 사진은 하카타점/);
+  assert.equal(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-04').existingRestaurantId,null);
+  assert.match(socialFoodCandidates.find(candidate=>candidate.id==='sns-food-04').subtitle,/과거 저장/);
 });
 
 test('canonical trip keeps all food candidates and valid UI shapes', () => {

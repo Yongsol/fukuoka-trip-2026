@@ -48,12 +48,13 @@ test('service worker activation deletes only this app cache generations', async 
   assert.deepEqual(deleted.sort(), ['fukuoka-planner-v3', 'fukuoka-trip-2026-v10', 'fukuoka-trip-2026-v2', 'fukuoka-trip-2026-v4', 'fukuoka-trip-2026-v5', 'fukuoka-trip-2026-v6', 'fukuoka-trip-2026-v7', 'fukuoka-trip-2026-v8', 'fukuoka-trip-2026-v9']);
 });
 
-test('service worker v17 caches SNS data, theme art, and all 21 local captures', async () => {
+test('service worker v18 caches SNS data, theme art, local captures, and replacement photos', async () => {
   const worker=await readFile(new URL('../sw.js',import.meta.url),'utf8');
-  assert.match(worker,/fukuoka-trip-2026-v17/);
+  assert.match(worker,/fukuoka-trip-2026-v18/);
   assert.match(worker,/assets\/theme\/beaver-baby-hero\.svg/);
   assert.match(worker,/\.\/src\/social-food-data\.js/);
   for(let number=1;number<=21;number+=1){
     assert.match(worker,new RegExp(`\\./assets/social-food/${String(number).padStart(2,'0')}-[^']+\\.webp`),`SNS capture ${number}`);
   }
+  for(const file of ['02-unafuji-daimyo.webp','08-fukutaro-tenjin-terra.webp','09-shinmiura-tenjin.webp','10-mamichan-yatai.webp','15-fruit-parlor-notoki.webp','18-quil-fait-bon-fukuoka.webp','24-kamakiri-udon.webp']) assert.ok(worker.includes(`./assets/restaurants/${file}`),file);
 });
